@@ -1,5 +1,5 @@
 # TheCircleB3
-# **The Circle** is a livestreaming platform where “transparent persons” voluntarily share their lives via mobile SeeChange cameras. Followers can watch, interact, and respond in real time. This repository implements a secure, modular streaming infrastructure with chat functionality, session tracking, and full transparency.
+**The Circle** is a livestreaming platform where “transparent persons” voluntarily share their lives via mobile SeeChange cameras. Followers can watch, interact, and respond in real time. This repository implements a secure, modular streaming infrastructure with chat functionality, session tracking, and full transparency.
 
 ## Project Goals
 
