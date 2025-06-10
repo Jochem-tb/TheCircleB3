@@ -40,6 +40,10 @@ build/Release
 
 # Dependency directories
 node_modules/
+frontend/node_modules/
+chat-server/node_modules/
+truYou/node_modules/
+logging-service/node_modules/
 jspm_packages/
 
 # Snowpack dependency directory (https://snowpack.dev/)
