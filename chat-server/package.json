@@ -1,18 +1,19 @@
 {
-  "name": "chat-server",
-  "version": "1.0.0",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "description": "",
-  "dependencies": {
-    "experss": "^0.0.1-security",
-    "express": "^5.1.0",
-    "ws": "^8.18.2"
-  }
+    "name": "chat-server",
+    "version": "1.0.0",
+    "main": "index.mjs",
+    "scripts": {
+        "start": "node index.js",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "type": "module",
+    "description": "",
+    "dependencies": {
+        "experss": "^0.0.1-security",
+        "express": "^5.1.0",
+        "ws": "^8.18.2"
+    }
 }
