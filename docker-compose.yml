@@ -44,9 +44,19 @@ services:
             - "1935:1935" # RTMP ingest
             - "8080:80" # HLS stream
         volumes:
-            - ./streaming-server/recordings:/var/www/recordings
-            - ./streaming-server/hls:/var/www/hls
+            - streaming-hls:/var/www/hls
+            - streaming-recordings:/var/www/recordings
         restart: always
+
+    streaming-api:
+        build: ./streaming-api
+        volumes:
+            - streaming-hls:/app/hls # Mount the same HLS folder if needed
+            - streaming-recordings:/app/recordings
+        ports:
+            - "5000:4000"
+        depends_on:
+            - streaming-server
 
     # truYou-auth:
     #     build: ./truYou-auth
@@ -55,3 +65,7 @@ services:
     #     restart: always
     #     environment:
     #         MONGO_URL: mongodb://mongo:27017/truyou
+
+volumes:
+    streaming-hls:
+    streaming-recordings:
