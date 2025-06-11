@@ -14,7 +14,7 @@ services:
         ports:
             - "4200:80"
         # depends_on:
-        #     - chat-server
+        #   - chat-server
         restart: always
     # DOESNT WORK
     frontend-streamer:
@@ -25,7 +25,7 @@ services:
         ports:
             - "4300:80"
         # depends_on:
-        #     - truYou-auth
+        #   - truYou-auth
         restart: always
 
     ingest-server:
@@ -36,7 +36,7 @@ services:
         volumes:
             - ./ingest-server/recordings:/app/recordings
         # depends_on:
-        #     - streaming-server
+        #   - streaming-server
 
     streaming-server:
         build: ./streaming-server
@@ -59,12 +59,21 @@ services:
             - streaming-server
 
     # truYou-auth:
-    #     build: ./truYou-auth
-    #     ports:
-    #         - "5000:5000"
-    #     restart: always
-    #     environment:
-    #         MONGO_URL: mongodb://mongo:27017/truyou
+    #   build: ./truYou-auth
+    #   ports:
+    #     - "5000:5000"
+    #   restart: always
+    #   environment:
+    #     MONGO_URL: mongodb://mongo:27017/truyou
+
+    logging-service:
+        build: ./logging-service
+        ports:
+            - "5200:5200"
+        restart: always
+        environment:
+            MONGO_URI: ${MONGO_URI} # Adjust log level as needed
+            PORT: "5200"
 
 volumes:
     streaming-hls:
