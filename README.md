@@ -28,3 +28,28 @@
 - Only open standards (e.g., RTMP, HLS, WebSocket, JWT).
 - All source code must be in English and versioned with Git.
 - The 4+1 architectural model must be documented (→ see `/docs`).
+
+## Project Setup & Running Guide
+
+# Prerequisites
+
+Before you begin, make sure you have the following installed on your system:
+
+- **[Node.js](https://nodejs.org/)** (version 16.x or higher recommended)  
+  Node.js comes with npm, which is required to install project dependencies.
+
+# Getting Started
+- 1. Clone the Repository
+git clone https://github.com/Jochem-tb/TheCircleB3.git
+cd TheCircleB3
+- 2. Navigate to the Frontend Folder
+cd frontend
+- 3. Install Dependencies
+npm install
+- 4. Run the Project
+cd projects
+cd [ProjectName]
+ng serve
+
+# Note: If you don’t have the Angular CLI installed globally, you can install it using:
+npm install -g @angular/cli
