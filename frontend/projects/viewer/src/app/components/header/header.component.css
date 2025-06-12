@@ -1,0 +1,20 @@
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+  margin-bottom: 20px;
+}
+
+.left-image {
+  height: 50px;
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+.right-image {
+  height: 50px;
+  cursor: pointer;
+  border-radius: 50%;
+}
