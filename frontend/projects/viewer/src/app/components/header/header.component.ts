@@ -10,7 +10,9 @@ import { FormsModule } from '@angular/forms';
 })
 export class HeaderComponent {
   showPopup = false;
-  inputValue = '';
+    username = '';
+  password = '';
+
 
   onLeftImageClick() {
     console.log('Left image clicked');
@@ -22,8 +24,10 @@ export class HeaderComponent {
   }
 
   onSubmit() {
-    console.log('Entered:', this.inputValue);
-    this.inputValue = ''; 
+     console.log('Username:', this.username);
+    console.log('Password:', this.password);
+    this.username = '';
+    this.password = '';
     this.showPopup = false;  // close popup after submit (optional)
   }
 
