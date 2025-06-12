@@ -1,15 +1,27 @@
 <header class="header">
   <img 
-  src="assets/circle.png" 
-  alt="Left Logo" 
-  class="left-image" 
+    src="assets/circle.png" 
+    alt="Left Logo" 
+    class="left-image" 
     (click)="onLeftImageClick()"
   />
 
   <img
-  src="assets/anon.webp" 
+    src="assets/anon.webp" 
     alt="Right Icon"
     class="right-image"
-    (click)="onRightImageClick()"
+    (click)="onProfileClick()"
   />
 </header>
+
+<!-- Popup overlay -->
+<div class="popup-overlay" *ngIf="showPopup" (click)="closePopup()">
+  <div class="popup-content" (click)="$event.stopPropagation()">
+    <input
+      type="text"
+      [(ngModel)]="inputValue"
+      placeholder="Username"
+    />
+    <button (click)="onSubmit()">Enter</button>
+  </div>
+</div>
