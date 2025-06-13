@@ -19,13 +19,8 @@
   <div class="popup-content" (click)="$event.stopPropagation()">
     <input
       type="text"
-      [(ngModel)]="username"
-      placeholder="Username"
-    />
-     <input
-      type="text"
-      [(ngModel)]="password"
-      placeholder="Password"
+      [(ngModel)]="privateKey"
+      placeholder="Private Key"
     />
     <button (click)="onSubmit()">Enter</button>
   </div>

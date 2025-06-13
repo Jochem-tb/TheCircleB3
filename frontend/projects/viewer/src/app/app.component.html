@@ -1,58 +1,5 @@
 <app-header></app-header>
 
 <div class="content">
-
-    <div class="content-grid">
-        <div class="following">
-            following
-        </div>
-
-        <div>
-            <div class="mainStream">
-                <video id="video" controls autoplay>
-                    <source src="http://localhost:8080/live/streamer1/index.m3u8" type="application/x-mpegURL" />
-                    Your browser does not support HLS.
-                </video>
-            </div>
-            
-            <div class="subStreams">
-                <video id="video" controls autoplay>
-                    <source src="http://localhost:8080/live/streamer1/index.m3u8" type="application/x-mpegURL" />
-                    Your browser does not support HLS.
-                </video>
-                <video id="video" controls autoplay>
-                    <source src="http://localhost:8080/live/streamer1/index.m3u8" type="application/x-mpegURL" />
-                    Your browser does not support HLS.
-                </video>
-                <video id="video" controls autoplay>
-                    <source src="http://localhost:8080/live/streamer1/index.m3u8" type="application/x-mpegURL" />
-                    Your browser does not support HLS.
-                </video>               
-
-
-                <video id="video" controls autoplay>
-                    <source src="http://localhost:8080/live/streamer1/index.m3u8" type="application/x-mpegURL" />
-                    Your browser does not support HLS.
-                </video>
-                <video id="video" controls autoplay>
-                    <source src="http://localhost:8080/live/streamer1/index.m3u8" type="application/x-mpegURL" />
-                    Your browser does not support HLS.
-                </video>
-                <video id="video" controls autoplay>
-                    <source src="http://localhost:8080/live/streamer1/index.m3u8" type="application/x-mpegURL" />
-                    Your browser does not support HLS.
-                </video>
-            </div>
-
-        </div>
-    </div>
-
-
+    <router-outlet></router-outlet>
 </div>
-
-<p>
-    Open OBS and stream to:
-    <code>rtmp://localhost:1935/live/streamer1</code>
-</p>
-
-<button (click)="sendLog()">Send Log</button>

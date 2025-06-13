@@ -1,6 +1,9 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
+
+
 @Component({
   selector: 'app-header',
   templateUrl: './header.component.html',
@@ -10,12 +13,13 @@ import { FormsModule } from '@angular/forms';
 })
 export class HeaderComponent {
   showPopup = false;
-    username = '';
-  password = '';
+  privateKey = '';	
+  constructor(private router: Router) {}
 
 
   onLeftImageClick() {
     console.log('Left image clicked');
+    this.router.navigate(['/']);
   }
 
   onProfileClick() {
@@ -24,10 +28,8 @@ export class HeaderComponent {
   }
 
   onSubmit() {
-     console.log('Username:', this.username);
-    console.log('Password:', this.password);
-    this.username = '';
-    this.password = '';
+     console.log('Private Key:', this.privateKey);
+    this.privateKey = '';
     this.showPopup = false;  // close popup after submit (optional)
   }
 
