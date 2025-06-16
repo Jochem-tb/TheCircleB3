@@ -22,6 +22,7 @@ export async function createTransport(streamId) {
         enableUdp: true,
         enableTcp: true,
         preferUdp: true,
+        initialAvailableOutgoingBitrate: 1000000, // 1 Mbps
     });
 
     transports.set(streamId, transport);

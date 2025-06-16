@@ -1,137 +1,134 @@
 import express from "express";
-import { createTransport } from "./mediasoupManager.js";
 import sdpTransform from "sdp-transform";
+import { createTransport } from "./mediasoupManager.js";
 
 const router = express.Router();
 
 router.post("/:streamId", async (req, res) => {
-    const { streamId } = req.params;
+  const { streamId } = req.params;
+  const sdpOffer = req.body;
 
-    const sdpOffer = req.body;
+  if (!sdpOffer) return res.status(400).send("Missing SDP offer");
 
-    console.log(`[WHIP] Incoming POST for streamId: ${streamId}`);
-    console.log(`[WHIP] Received SDP offer:\n${sdpOffer}`);
+  try {
+    // 1. create WebRTC transport
+    const transport = await createTransport(streamId);
 
-    if (!sdpOffer) {
-        console.error("[WHIP] Missing SDP offer");
-        return res.status(400).send("Missing SDP offer");
+    // 2. parse offer for DTLS / ICE info
+    const offer         = sdpTransform.parse(sdpOffer);
+    const media0        = offer.media[0];
+    const fpOffer       = offer.fingerprint || media0?.fingerprint;
+    const iceOfferUfrag = offer.iceUfrag    || media0?.iceUfrag;
+    const iceOfferPwd   = offer.icePwd      || media0?.icePwd;
+
+    if (!fpOffer || !iceOfferUfrag || !iceOfferPwd)
+      throw new Error("Offer missing DTLS/ICE fields");
+
+    // 3. connect transport with remote DTLS
+    await transport.connect({
+      dtlsParameters: {
+        role: "auto",
+        fingerprints: [{ algorithm: fpOffer.type, value: fpOffer.hash }]
+      }
+    });
+
+    // 4. produce every sendonly track from OBS
+    for (const m of offer.media) {
+      if (m.direction !== "sendonly") continue;
+
+      const codec = m.rtp?.[0];
+      const ssrc  = m.ssrcs?.[0]?.id || Math.floor(Math.random() * 1e6);
+
+      await transport.produce({
+        kind: m.type,
+        rtpParameters: {
+          codecs: [{
+            mimeType: m.type === "audio" ? "audio/opus" : "video/H264",
+            payloadType: codec.payload,
+            clockRate: codec.rate,
+            channels: m.type === "audio" ? 2 : undefined,
+            parameters: m.fmtp?.[0]?.config
+              ? Object.fromEntries(
+                  m.fmtp[0].config.split(";").map(e => {
+                    const [k, v] = e.trim().split("=");
+                    return [k, v ?? ""];
+                  })
+                )
+              : {},
+            rtcpFeedback: m.rtcpFb ?? []
+          }],
+          encodings: [{ ssrc }]
+        }
+      });
     }
 
-    try {
-        const transport = await createTransport(streamId);
-        console.log("[WHIP] Created transport:", transport.id);
+    // 5. build SDP answer
+    const ice   = transport.iceParameters;
+    const dtls  = transport.dtlsParameters;
+    const cands = transport.iceCandidates;
 
-        const offer = sdpTransform.parse(sdpOffer);
-        const media = offer.media[0];
-        const fingerprint = media.fingerprint || offer.fingerprint;
-        const iceUfrag = media.iceUfrag || offer.iceUfrag;
-        const icePwd = media.icePwd || offer.icePwd;
+    const fp256 = dtls.fingerprints.find(f => f.algorithm.toLowerCase() === "sha-256")
+               || dtls.fingerprints[0];
 
-        if (!fingerprint || !iceUfrag || !icePwd) {
-            throw new Error("Missing DTLS or ICE parameters in SDP offer");
-        }
+    const answer = {
+      version : 0,
+      origin  : { username:"-", sessionId:0, sessionVersion:0, netType:"IN", ipVer:4, address:"127.0.0.1" },
+      name    : "mediasoup",
+      timing  : { start:0, stop:0 },
+      iceLite : true,
+      media   : []
+    };
 
-        await transport.connect({
-            dtlsParameters: {
-                role: 'auto',
-                fingerprints: [
-                    { algorithm: fingerprint.type, value: fingerprint.hash }
-                ]
-            }
-        });
+    // replicate each media section
+    for (const [idx, m] of offer.media.entries()) {
+      if (m.direction !== "sendonly") continue;
 
-        const iceParams = transport.iceParameters;
-        const dtlsParams = transport.dtlsParameters;
-        const candidates = transport.iceCandidates;
+      const codec = m.rtp?.[0];
 
-        // Build SDP answer manually
-        const sdpAnswerObj = {
-            version: 0,
-            origin: {
-                username: '-',
-                sessionId: 0,
-                sessionVersion: 0,
-                netType: 'IN',
-                ipVer: 4,
-                address: '127.0.0.1'
-            },
-            name: 'mediasoup',
-            timing: { start: 0, stop: 0 },
-            iceLite: true,
-            media: []
-        };
-
-        // Accept incoming media
-        for (const m of offer.media) {
-            if (m.direction !== "sendonly") continue; // Only accept sendonly from OBS
-
-            if (m.type === "audio") {
-                const codec = m.rtp.find(c => c.codec.toLowerCase() === "opus");
-                if (!codec) continue;
-
-                const ssrc = m.ssrcs?.[0]?.id || 1111;
-
-                await transport.produce({
-                    kind: "audio",
-                    rtpParameters: {
-                        codecs: [{
-                            mimeType: "audio/opus",
-                            payloadType: codec.payload,
-                            clockRate: codec.rate,
-                            channels: 2
-                        }],
-                        encodings: [{ ssrc }]
-                    }
-                });
-
-                console.log("🎤 Produced audio track with SSRC", ssrc);
-            }
-
-            if (m.type === "video") {
-                const codec = m.rtp.find(c => c.codec.toLowerCase().includes("h264"));
-                if (!codec) continue;
-
-                const fmtp = m.fmtp?.find(f => f.payload === codec.payload);
-                const parameters = {};
-                if (fmtp?.config) {
-                    fmtp.config.split(";").forEach(entry => {
-                        const [key, val] = entry.trim().split("=");
-                        parameters[key] = val ?? "";
-                    });
-                }
-
-                const ssrc = m.ssrcs?.[0]?.id || 2222;
-
-                await transport.produce({
-                    kind: "video",
-                    rtpParameters: {
-                        codecs: [{
-                            mimeType: "video/H264",
-                            payloadType: codec.payload,
-                            clockRate: codec.rate,
-                            parameters,
-                            rtcpFeedback: [
-                                { type: "nack" },
-                                { type: "nack", parameter: "pli" },
-                                { type: "goog-remb" }
-                            ]
-                        }],
-                        encodings: [{ ssrc }]
-                    }
-                });
-
-                console.log("📹 Produced video track with SSRC", ssrc);
-            }
-        }
-
-        const sdpAnswer = sdpTransform.write(sdpAnswerObj);
-
-        console.log("[WHIP] Sending SDP answer:\n", sdpAnswer);
-        res.type("application/sdp").send(sdpAnswer);
-    } catch (err) {
-        console.error("[WHIP] Error handling WHIP request:", err);
-        res.status(500).send("Internal server error");
+      answer.media.push({
+        type       : m.type,
+        port       : 7,
+        protocol   : "UDP/TLS/RTP/SAVPF",
+        payloads   : String(codec.payload),
+        connection : { version:4, ip:"127.0.0.1" },
+        mid        : m.mid ?? String(idx),
+        direction  : "recvonly",
+        rtp        : [codec],
+        fmtp       : m.fmtp ?? [],
+        rtcpFb     : m.rtcpFb ?? [],
+        setup      : "active",           // server = DTLS client
+        iceUfrag   : ice.usernameFragment,
+        icePwd     : ice.password,
+        fingerprint: { type: fp256.algorithm, hash: fp256.value },
+        candidates : cands.map((c,i) => ({
+          foundation:`fnd${i}`, component:1, transport:c.protocol,
+          priority:c.priority, ip:c.ip, port:c.port, type:c.type
+        })),
+        iceOptions : "ice2",
+        rtcpMux    : "rtcp-mux",
+        endOfCandidates: "end-of-candidates"
+      });
     }
+
+    // small wait helps candidate gathering
+    await new Promise(r => setTimeout(r, 100));
+
+    const sdpAnswer = sdpTransform.write(answer);
+
+    // 6. WHIP-compliant HTTP response
+    res.status(201)
+       .set("Location", `/whip/${streamId}`)
+       .type("application/sdp")
+       .send(sdpAnswer);
+
+    const stats = await transport.getStats();
+    console.log(stats); // bytesReceived en packetsReceived lopen op
+    console.log(`WHIP stream ${streamId} started successfully`);
+
+  } catch (e) {
+    console.error("WHIP error:", e);
+    res.status(500).send("Internal server error");
+  }
 });
 
 export default router;
