@@ -1,14 +1,14 @@
 import express from "express";
-import morgan from "morgan";
+import config from "./config.js";
+import { startMediasoup } from "./mediasoupManager.js";
 import whipRouter from "./whipRouter.js";
 
 const app = express();
-const PORT = process.env.PORT || 8090;
-
-app.use(morgan("dev"));
 app.use(express.json());
+// app.use("/whip", express.text({ type: "application/sdp" }));
 app.use("/whip", whipRouter);
 
-app.listen(PORT, () => {
-    console.log(`Ingest server running on port ${PORT}`);
+app.listen(config.httpPort, async () => {
+    console.log(`Ingest API listening on http://0.0.0.0:${config.httpPort}`);
+    await startMediasoup();
 });
