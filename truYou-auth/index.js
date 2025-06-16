@@ -6,12 +6,13 @@ app.use(express.json());
 
 app.post('/verify', (req, res) => {
     const { name, publicKey, signature } = req.body || {};
+    const message = `I am ${name}`;
 
     if (!name || !publicKey || !signature) {
         return res.status(400).json({ error: 'Missing auth fields', validVerification: false });
     }
 
-    const validSignature = verifySignature(`I am ${name}`, publicKey, signature);
+    const validSignature = verifySignature(message, publicKey, signature);
 
     if (validSignature) {
         return res.json({ validVerification: true, name });
