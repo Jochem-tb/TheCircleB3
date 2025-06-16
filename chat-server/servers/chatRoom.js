@@ -1,4 +1,5 @@
 import fetch from 'node-fetch'; // This line is needed to import fetch in Node.js
+import { AUTH_SERVER_URL } from './config.js';
 
 class ChatRoom {
     constructor(userId) {
@@ -97,6 +98,7 @@ class ChatRoom {
     async verifyWithAuthServer(name, publicKey, signature) {
         try {
             const res = await fetch('http://localhost:3000/verify', {
+            const res = fetch(`${AUTH_SERVER_URL}/verify`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, publicKey, signature })
