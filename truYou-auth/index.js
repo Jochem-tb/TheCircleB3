@@ -9,6 +9,7 @@ app.post('/verify', (req, res) => {
     const message = `I am ${name}`;
 
     if (!name || !publicKey || !signature) {
+        console.error('Missing auth fields:', { name, publicKey, signature });
         return res.status(400).json({ error: 'Missing auth fields', validVerification: false });
     }
 
