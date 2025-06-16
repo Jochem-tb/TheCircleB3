@@ -139,6 +139,7 @@ dist
 .yarn/install-state.gz
 .pnp.*
 chat-server/package-lock.json
+truYou-auth/package-lock.json
 
 # Personal txt file
 TODO.txt
