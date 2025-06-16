@@ -1,0 +1,25 @@
+.content {
+    color: #ffffff;
+}
+
+.content-grid {
+    display: grid;
+    grid-template-columns: 1fr 7fr 2fr;
+    gap: 20px;
+    margin-left: 20px;
+    margin-right: 20px;
+}
+
+.following {
+    background-color: #3B3535;
+    padding: 20px;
+}
+
+.chat {
+    background-color: #3B3535;
+    padding: 20px;
+}
+
+.stream video {
+    width: 100%;
+}
