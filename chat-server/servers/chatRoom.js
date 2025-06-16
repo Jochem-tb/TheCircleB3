@@ -48,8 +48,6 @@ class ChatRoom {
             }
 
             console.log(`Authentication request for user: ${name}`);
-            console.log(`Public Key: ${publicKey}`);
-            console.log(`Signature: ${signature}`);
             //  Verify the signature with the auth server
             const validVerification = await this.verifyWithAuthServer(name, publicKey, signature);
 
