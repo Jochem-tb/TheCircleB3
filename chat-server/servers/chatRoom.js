@@ -27,7 +27,7 @@ class ChatRoom {
 
 
     //Handle incoming messages.
-    async handleMessage(ws, raw) {
+    handleMessage(ws, raw) {
         let msg;
 
         // Parse JSON message
@@ -49,7 +49,7 @@ class ChatRoom {
 
             console.log(`Authentication request for user: ${name}`);
             //  Verify the signature with the auth server
-            const validVerification = await this.verifyWithAuthServer(name, publicKey, signature);
+            const validVerification = this.verifyWithAuthServer(name, publicKey, signature);
 
             if (validVerification) {
                 console.log(`User ${name} authenticated successfully.`);
@@ -95,9 +95,8 @@ class ChatRoom {
     }
 
     // Verify the user's signature with the auth server.
-    async verifyWithAuthServer(name, publicKey, signature) {
+    verifyWithAuthServer(name, publicKey, signature) {
         try {
-            const res = await fetch('http://localhost:3000/verify', {
             const res = fetch(`${AUTH_SERVER_URL}/verify`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -106,7 +105,7 @@ class ChatRoom {
 
             if (!res.ok) return false;
 
-            const result = await res.json();
+            const result = res.json();
             return result.valid === true;
         } catch (err) {
             console.error('Auth server error:', err);
