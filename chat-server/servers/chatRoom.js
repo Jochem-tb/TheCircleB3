@@ -1,5 +1,5 @@
 import fetch from 'node-fetch'; // This line is needed to import fetch in Node.js
-import { AUTH_SERVER_URL } from './config.js';
+import { AUTH_SERVER_URL } from '../config/config.js';
 
 class ChatRoom {
     constructor(userId) {
@@ -27,7 +27,7 @@ class ChatRoom {
 
 
     //Handle incoming messages.
-    handleMessage(ws, raw) {
+    async handleMessage(ws, raw) {
         let msg;
 
         // Parse JSON message
@@ -48,8 +48,10 @@ class ChatRoom {
             }
 
             console.log(`Authentication request for user: ${name}`);
+            console.log(`Public Key: ${publicKey}`);
+            console.log(`Signature: ${signature}`);
             //  Verify the signature with the auth server
-            const validVerification = this.verifyWithAuthServer(name, publicKey, signature);
+            const validVerification = await this.verifyWithAuthServer(name, publicKey, signature);
 
             if (validVerification) {
                 console.log(`User ${name} authenticated successfully.`);
@@ -95,18 +97,16 @@ class ChatRoom {
     }
 
     // Verify the user's signature with the auth server.
-    verifyWithAuthServer(name, publicKey, signature) {
+    async verifyWithAuthServer(name, publicKey, signature) {
         try {
-            const res = fetch(`${AUTH_SERVER_URL}/verify`, {
+            const res = await fetch(`${AUTH_SERVER_URL}/verify`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, publicKey, signature })
             });
 
-            if (!res.ok) return false;
-
-            const result = res.json();
-            return result.valid === true;
+            const result = await res.json();
+            return result.validVerification === true;
         } catch (err) {
             console.error('Auth server error:', err);
             return false;
