@@ -1,45 +1,12 @@
 import express from "express";
-<<<<<<< Updated upstream
-import { createTransport, getRouter } from "./mediasoupManager.js";
-import { handleWebRtcOffer } from "./streamManager.js";
-
-import { v4 as uuid } from "uuid";
-=======
 import { createTransport } from "./mediasoupManager.js";
 import sdpTransform from "sdp-transform";
->>>>>>> Stashed changes
 
 const router = express.Router();
 
 router.post("/:streamId", async (req, res) => {
     const { streamId } = req.params;
-<<<<<<< Updated upstream
-    // For application/sdp, you should have express.text() in server.js
-    const sdpOffer = req.body;
 
-    if (!sdpOffer || !sdpOffer.startsWith("v=0")) {
-        return res.status(400).send("Missing or invalid SDP offer");
-    }
-
-    try {
-        // 1) Create a new WebRTC transport for this publisher
-        const transport = await createTransport(streamId);
-
-        // 2) Run the SDP handshake and get back your SDP answer
-        const sdpAnswer = await handleWebRtcOffer(
-            streamId,
-            transport,
-            sdpOffer
-        );
-
-        // 3) Send the SDP answer back as raw SDP
-        res.type("application/sdp").send(sdpAnswer);
-        // res.status(201).json({ sdp: sdpAnswer, transportId: transport.id });
-        console.log(`WHIP publish started for stream ${streamId}`);
-    } catch (err) {
-        console.error("WHIP publish error:", err);
-        res.status(500).send(err.toString());
-=======
     const sdpOffer = req.body;
 
     console.log(`[WHIP] Incoming POST for streamId: ${streamId}`);
@@ -164,7 +131,6 @@ router.post("/:streamId", async (req, res) => {
     } catch (err) {
         console.error("[WHIP] Error handling WHIP request:", err);
         res.status(500).send("Internal server error");
->>>>>>> Stashed changes
     }
 });
 

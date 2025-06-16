@@ -14,12 +14,6 @@ export default {
                     mimeType: "video/H264",
                     clockRate: 90000,
                     parameters: {
-<<<<<<< Updated upstream
-                        "packetization-mode": 1,
-                        "profile-level-id": "42e01f",
-                        "level-asymmetry-allowed": 1,
-                    },
-=======
                     "profile-level-id": "42e01f",
                     "packetization-mode": "1",
                     "level-asymmetry-allowed": "1"
@@ -29,7 +23,6 @@ export default {
                     { type: "nack", parameter: "pli" },
                     { type: "goog-remb" }
                     ]
->>>>>>> Stashed changes
                 },
                 {
                     kind: "audio",
