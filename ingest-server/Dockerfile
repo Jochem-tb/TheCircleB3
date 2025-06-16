@@ -1,14 +1,11 @@
-# ingest-server/Dockerfile
-FROM node:20-alpine
+FROM node:20
 
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --production
-
+RUN npm install
 COPY . .
-# ensure recordings folder exists
+
 RUN mkdir -p recordings
 
-EXPOSE 4000
-
-CMD ["node", "index.js"]
+EXPOSE 8090
+CMD ["npm", "start"]
