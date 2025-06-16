@@ -5,7 +5,7 @@ import whipRouter from "./whipRouter.js";
 
 const app = express();
 app.use(express.json());
-// app.use("/whip", express.text({ type: "application/sdp" }));
+app.use(express.text({ type: "application/sdp" })); // for raw SDP
 app.use("/whip", whipRouter);
 
 app.listen(config.httpPort, async () => {

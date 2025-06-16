@@ -1,5 +1,7 @@
 import express from "express";
 import { createTransport, getRouter } from "./mediasoupManager.js";
+import { handleWebRtcOffer } from "./streamManager.js";
+
 import { v4 as uuid } from "uuid";
 
 const router = express.Router();
@@ -12,22 +14,32 @@ const router = express.Router();
 
 router.post("/:streamId", async (req, res) => {
     const { streamId } = req.params;
-    const sdpOffer = req.body.sdp;
+    // For application/sdp, you should have express.text() in server.js
+    const sdpOffer = req.body;
 
-    if (!sdpOffer) return res.status(400).send("Missing SDP offer");
+    if (!sdpOffer || !sdpOffer.startsWith("v=0")) {
+        return res.status(400).send("Missing or invalid SDP offer");
+    }
 
-    const transport = await createTransport(streamId);
-    const { sdpAnswer } = await handleSdpExchange(transport, sdpOffer);
+    try {
+        // 1) Create a new WebRTC transport for this publisher
+        const transport = await createTransport(streamId);
 
-    res.json({ sdp: sdpAnswer });
+        // 2) Run the SDP handshake and get back your SDP answer
+        const sdpAnswer = await handleWebRtcOffer(
+            streamId,
+            transport,
+            sdpOffer
+        );
+
+        // 3) Send the SDP answer back as raw SDP
+        res.type("application/sdp").send(sdpAnswer);
+        // res.status(201).json({ sdp: sdpAnswer, transportId: transport.id });
+        console.log(`WHIP publish started for stream ${streamId}`);
+    } catch (err) {
+        console.error("WHIP publish error:", err);
+        res.status(500).send(err.toString());
+    }
 });
-
-// Stub — you'd use sdp-transform and mediasoup-sdp utils
-async function handleSdpExchange(transport, sdpOffer) {
-    // You'll need to implement proper SDP parsing (WHIP standard)
-    // This is a placeholder for demonstration
-
-    return { sdpAnswer: "fake-sdp-answer" };
-}
 
 export default router;
