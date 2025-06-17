@@ -1,30 +1,36 @@
-import express from "express";
-import * as ws from "ws";
-import http from "http";
-const app = express();
-const server = http.createServer(app);
-const wss = new ws.WebSocketServer({ server });
 
-wss.on("connection", function connection(ws, req) {
-    const streamId = new URL(
-        req.url,
-        `http://${req.headers.host}`
-    ).pathname.slice(1);
+import http from 'http';
+import url from 'url';
+import WebSocket, { WebSocketServer } from 'ws';
+import { getOrCreateChatRoom } from './serverManager.js';
 
-    if (!chatRooms[streamId]) chatRooms[streamId] = new Set();
-    chatRooms[streamId].add(ws);
+// Create a WebSocket server
+const server = http.createServer();
+const wss = new WebSocketServer({ server });
 
-    ws.on("message", function incoming(message) {
-        for (const client of chatRooms[streamId]) {
-            if (client.readyState === WebSocket.OPEN) {
-                client.send(message);
-            }
-        }
-    });
+// Listen for WebSocket connection events
+wss.on('connection', (ws, req) => {
+    console.log('New connection request:', req.url);
 
-    ws.on("close", () => chatRooms[streamId].delete(ws));
+    // Parse the request URL to extract query parameters
+    const { query } = url.parse(req.url, true);
+    const { userId } = query;
+
+    // If no userId is provided, reject the connection
+    if (!userId) {
+        console.log('Connection rejected: Missing userId');
+        ws.send(JSON.stringify({ error: 'Missing userId in query string' }));
+        ws.close();
+        return;
+    }
+
+    // Log the connection and add the client to the corresponding chat room
+    console.log(`Client connecting to chat room for userId: ${userId}`);
+    const chatRoom = getOrCreateChatRoom(userId);
+    chatRoom.addClient(ws);
 });
 
-app.listen(3000, () => {
-    console.log("Chat server is running on port 3000");
+// Start the server
+server.listen(8080, () => {
+    console.log('Chat master server running on port 8080');
 });
