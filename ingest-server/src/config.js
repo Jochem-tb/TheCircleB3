@@ -1,7 +1,7 @@
 export default {
     httpPort: 8090,
     mediasoup: {
-        listenIps: [{ ip: "0.0.0.0", announcedIp: "192.168.178.204" }],
+        listenIps: [{ ip: "0.0.0.0", announcedIp: "192.168.2.18" }],
         worker: {
             rtcMinPort: 10000,
             rtcMaxPort: 10100,
