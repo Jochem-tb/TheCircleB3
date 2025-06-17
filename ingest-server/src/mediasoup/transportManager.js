@@ -4,16 +4,23 @@ import { getRouter } from "./routerManager.js";
 const ingestTransports = new Map();
 const viewerTransports = new Map();
 
-export async function createIngestTransport(streamId) {
+export async function createIngestTransport(streamId = {}) {
     const router = getRouter(streamId);
     const transport = await router.createWebRtcTransport({
         listenIps: config.mediasoup.listenIps,
-        enableUdp: false,
+        enableUdp: true,
         enableTcp: true,
         preferUdp: false,
+        preferTcp: true,
         initialAvailableOutgoingBitrate: 1000000,
     });
+
+    console.log(
+        `[Ingest] Created transport for streamId ${streamId} (id=${transport.id})`
+    );
+
     ingestTransports.set(streamId, transport);
+
     return transport;
 }
 
@@ -27,6 +34,7 @@ export function removeIngestTransport(streamId) {
         t.close();
         ingestTransports.delete(streamId);
     }
+    console.log(`[Ingest] Removed transport for streamId ${streamId}`);
 }
 
 export async function createViewerTransport(viewerId, streamId) {
@@ -38,6 +46,9 @@ export async function createViewerTransport(viewerId, streamId) {
         preferUdp: true,
         initialAvailableOutgoingBitrate: 1000000,
     });
+    console.log(
+        `[Viewer] Created transport for viewerId ${viewerId} (id=${transport.id})`
+    );
     viewerTransports.set(viewerId, transport);
     return transport;
 }
@@ -52,4 +63,5 @@ export function removeViewerTransport(viewerId) {
         t.close();
         viewerTransports.delete(viewerId);
     }
+    console.log(`[Viewer] Removed transport for viewerId ${viewerId}`);
 }

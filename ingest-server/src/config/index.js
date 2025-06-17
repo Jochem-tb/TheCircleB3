@@ -24,13 +24,39 @@ export default {
         },
         router: {
             mediaCodecs: [
+                // Support VP8
+                {
+                    kind: "video",
+                    mimeType: "video/VP8",
+                    clockRate: 90000,
+                    rtcpFeedback: [
+                        { type: "nack" },
+                        { type: "nack", parameter: "pli" },
+                        { type: "ccm", parameter: "fir" },
+                        { type: "goog-remb" },
+                    ],
+                },
+
+                // Support VP9
+                {
+                    kind: "video",
+                    mimeType: "video/VP9",
+                    clockRate: 90000,
+                    rtcpFeedback: [
+                        { type: "nack" },
+                        { type: "nack", parameter: "pli" },
+                        { type: "goog-remb" },
+                    ],
+                },
+
+                // Support H264 (packetization-mode=1)
                 {
                     kind: "video",
                     mimeType: "video/H264",
                     clockRate: 90000,
                     parameters: {
-                        "profile-level-id": "42e01f",
                         "packetization-mode": "1",
+                        "profile-level-id": "42e01f",
                         "level-asymmetry-allowed": "1",
                     },
                     rtcpFeedback: [
@@ -39,6 +65,25 @@ export default {
                         { type: "goog-remb" },
                     ],
                 },
+
+                // Support H264 (packetization-mode=0) for Safari
+                {
+                    kind: "video",
+                    mimeType: "video/H264",
+                    clockRate: 90000,
+                    parameters: {
+                        "packetization-mode": "0",
+                        "profile-level-id": "42e01f",
+                        "level-asymmetry-allowed": "1",
+                    },
+                    rtcpFeedback: [
+                        { type: "nack" },
+                        { type: "nack", parameter: "pli" },
+                        { type: "goog-remb" },
+                    ],
+                },
+
+                // Always leave Opus in
                 {
                     kind: "audio",
                     mimeType: "audio/opus",

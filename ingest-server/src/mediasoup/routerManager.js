@@ -9,6 +9,9 @@ export async function createRouter(streamId) {
         mediaCodecs: config.mediasoup.router.mediaCodecs,
     });
     routers.set(streamId, router);
+    console.log(
+        `[Router] Created router for streamId ${streamId} (id=${router.id})`
+    );
     return router;
 }
 
