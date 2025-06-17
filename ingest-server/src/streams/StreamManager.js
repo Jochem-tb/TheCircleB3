@@ -6,6 +6,14 @@ class StreamManager {
     constructor() {
         this.streams = new Map();
     }
+    async createStream(id, producer) {
+        console.log(`[StreamManager] Creating stream with ID: ${id}`);
+        await createRouter(id);
+        const streamObject = new Stream(id);
+        streamObject.setProducer(producer);
+        this.streams.set(id, streamObject);
+        return streamObject;
+    }
     async createStream(id) {
         await createRouter(id);
         const streamObject = new Stream(id);

@@ -1,5 +1,7 @@
-import { Component, OnInit } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { Injectable, NgZone } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { MediasoupService } from './MediasoupService';
 
 @Component({
     selector: 'app-root',
@@ -10,33 +12,57 @@ import { RouterOutlet } from '@angular/router';
 export class AppComponent implements OnInit {
     title = 'streamer';
 
+    constructor(private mediasoupService: MediasoupService) {}
+    @ViewChild('videoPreview', { static: true })
+    videoPreview!: ElementRef<HTMLVideoElement>;
+
     ngOnInit() {
         // Any initialization logic can go here
     }
 
+    loadStream() {
+        console.log('🔄 Starting WHIP stream...');
+        const videoElem = document.getElementById(
+            'streamingDiv'
+        ) as HTMLVideoElement | null;
+        if (!videoElem) {
+            console.error('❌ Could not find video element with ID #videoElem');
+            return;
+        }
+        this.mediasoupService
+            .initStream('test-stream', videoElem)
+            .catch((err) => {
+                console.error('❌ Error starting WHIP stream:', err);
+            });
+    }
+
     preferCodec(sdp: string, codec: string = 'VP8'): string {
-      const lines = sdp.split('\n');
-      const mLineIdx = lines.findIndex(l => l.startsWith('m=video'));
-      if (mLineIdx === -1) return sdp;
+        const lines = sdp.split('\n');
+        const mLineIdx = lines.findIndex((l) => l.startsWith('m=video'));
+        if (mLineIdx === -1) return sdp;
 
-      // Collect payload types for the target codec (e.g. VP8)
-      const payloads = lines
-        .filter(l => l.startsWith('a=rtpmap') && l.toUpperCase().includes(`${codec.toUpperCase()}/90000`))
-        .map(l => {
-          const m = l.match(/a=rtpmap:(\d+)\s/);
-          return m ? m[1] : null;
-        })
-        .filter(p => p !== null) as string[];
+        // Collect payload types for the target codec (e.g. VP8)
+        const payloads = lines
+            .filter(
+                (l) =>
+                    l.startsWith('a=rtpmap') &&
+                    l.toUpperCase().includes(`${codec.toUpperCase()}/90000`)
+            )
+            .map((l) => {
+                const m = l.match(/a=rtpmap:(\d+)\s/);
+                return m ? m[1] : null;
+            })
+            .filter((p) => p !== null) as string[];
 
-      if (!payloads.length) {
-        console.warn(`No payload for codec ${codec} found in SDP`);
-        return sdp;
-      }
+        if (!payloads.length) {
+            console.warn(`No payload for codec ${codec} found in SDP`);
+            return sdp;
+        }
 
-      // Rewrite the m=video line to only include VP8 payloads
-      const parts = lines[mLineIdx].split(' ');
-      lines[mLineIdx] = [...parts.slice(0, 3), ...payloads].join(' ');
-      return lines.join('\n');
+        // Rewrite the m=video line to only include VP8 payloads
+        const parts = lines[mLineIdx].split(' ');
+        lines[mLineIdx] = [...parts.slice(0, 3), ...payloads].join(' ');
+        return lines.join('\n');
     }
 
     async startWhip() {
