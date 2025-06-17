@@ -266,18 +266,24 @@ router.post("/:streamId", async (req, res) => {
         console.error("[WHIP] ingest error for", streamId, err);
         res.status(500).send(err.message);
     }
-    let ms = 1;
+    // Log ingest transport bitrate (kbps) every 10 seconds
+    let lastBytesReceived = 0;
+    let lastTimestamp = Date.now();
     setInterval(async () => {
         try {
             const stats = await getIngestTransport(streamId).getStats();
             stats.forEach((stat) => {
                 if (stat.bytesReceived !== undefined) {
-                    const kbps = (stat.bytesReceived / ms).toFixed(1);
-                    ms += 10000;
-                    console.debug(
-                        `[WHIP] ${new Date().toISOString()} ${streamId} ${
-                            stat.kind
-                        } kbps=${kbps}`
+                    const now = Date.now();
+                    const elapsedSec = (now - lastTimestamp) / 1000;
+                    const bytesDelta = stat.bytesReceived - lastBytesReceived;
+                    const kbps = ((bytesDelta * 8) / 1000 / elapsedSec).toFixed(
+                        1
+                    );
+                    lastBytesReceived = stat.bytesReceived;
+                    lastTimestamp = now;
+                    console.info(
+                        `[WHIP] [${streamId}] ${stat.kind} bitrate: ${kbps} kbps`
                     );
                 }
             });
