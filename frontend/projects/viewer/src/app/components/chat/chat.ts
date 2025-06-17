@@ -3,8 +3,8 @@ import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 type ChatMessage = {
-  user: string
-  message: string
+  sender: string
+  messageText: string
   timestamp: Date
 }
 
@@ -20,12 +20,13 @@ type ChatMessage = {
 export class ChatComponent {
   messages: ChatMessage[] = []
   newMessage: string = ''
+  authenticated: boolean = false;
 
   constructor() {
     setInterval(() => {
       this.receiveMessage({
-        user: 'Viewer' + Math.floor(Math.random() * 100),
-        message: 'Sample message',
+        sender: 'Viewer' + Math.floor(Math.random() * 100),
+        messageText: 'Sample message',
         timestamp: new Date()
       })
     }, 5000)
@@ -35,8 +36,8 @@ export class ChatComponent {
     if (this.newMessage.trim() === '') return
 
     this.receiveMessage({
-      user: 'You',
-      message: this.newMessage,
+      sender: 'You',
+      messageText: this.newMessage,
       timestamp: new Date()
     })
 

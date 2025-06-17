@@ -1,5 +1,6 @@
 .content {
     color: #ffffff;
+    font-family: sans-serif; 
 }
 
 .content-grid {
@@ -36,3 +37,4 @@
   width: 100%;
   height: auto;
 }
+
