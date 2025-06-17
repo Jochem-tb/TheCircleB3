@@ -13,7 +13,7 @@ import { Router } from '@angular/router';
 })
 export class HeaderComponent {
   showPopup = false;
-  privateKey = '';	
+  userName = '';	
   constructor(private router: Router) {}
 
 
@@ -28,8 +28,8 @@ export class HeaderComponent {
   }
 
   onSubmit() {
-     console.log('Private Key:', this.privateKey);
-    this.privateKey = '';
+     console.log('Private Key:', this.userName);
+    this.userName = '';
     this.showPopup = false;  // close popup after submit (optional)
   }
 
