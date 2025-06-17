@@ -240,43 +240,68 @@ router.post("/:streamId", async (req, res) => {
     }
 
     // Above your interval, keep a map of last bytes & time per transport kind
+    // Track last stats per stream
     const lastStats = new Map();
 
     /** Called every N milliseconds */
     async function logRate(streamId) {
-    const now = Date.now();
-    const stats = await getIngestTransport(streamId).getStats();
+        // If stream is gone, stop logging
+        if (!streamManager.hasStream(streamId)) return;
 
-    stats.forEach(stat => {
-        if (stat.bytesReceived === undefined) return;
-
-        // Use stat.id (or stat.kind) as the key
-        const key = `${streamId}:${stat.kind}`;
-        const prev = lastStats.get(key);
-
-        if (prev) {
-        const deltaBytes = stat.bytesReceived - prev.bytes;
-        const deltaSecs  = (now - prev.timestamp) / 1000;
-        // bytes → bits → kilobits
-        const kbps = ((deltaBytes * 8) / deltaSecs / 1000).toFixed(1);
-        console.debug(
-            `[WHIP] ${new Date().toISOString()} ${streamId} ${stat.kind} kbps=${kbps}`
-        );
+        const now = Date.now();
+        let transport;
+        try {
+            transport = getIngestTransport(streamId);
+            if (!transport) return;
+        } catch (e) {
+            // Transport not found, stop logging
+            return;
         }
 
-        // Store current for next round
-        lastStats.set(key, {
-        bytes: stat.bytesReceived,
-        timestamp: now
+        let stats;
+        try {
+            stats = await transport.getStats();
+        } catch (err) {
+            // Error getting stats, stop logging
+            return;
+        }
+
+        stats.forEach(stat => {
+            if (stat.bytesReceived === undefined) return;
+
+            // Use stat.id (or stat.kind) as the key
+            const key = `${streamId}:${stat.kind}`;
+            const prev = lastStats.get(key);
+
+            if (prev) {
+                const deltaBytes = stat.bytesReceived - prev.bytes;
+                const deltaSecs  = (now - prev.timestamp) / 1000;
+                // bytes → bits → kilobits
+                const kbps = ((deltaBytes * 8) / deltaSecs / 1000).toFixed(1);
+                console.debug(
+                    `[WHIP] ${new Date().toISOString()} ${streamId} ${stat.kind} kbps=${kbps}`
+                );
+            }
+
+            // Store current for next round
+            lastStats.set(key, {
+                bytes: stat.bytesReceived,
+                timestamp: now
+            });
         });
-    });
     }
 
-    // And use this interval instead:
-    setInterval(() => {
-    logRate(streamId).catch(err => {
-        console.error(`[WHIP] stats error for ${streamId}:`, err);
-    });
+    // Interval handle so we can clear it if needed
+    const statsInterval = setInterval(() => {
+        // If stream is gone, clear interval
+        if (!streamManager.hasStream(streamId)) {
+            clearInterval(statsInterval);
+            return;
+        }
+        logRate(streamId).catch(err => {
+            console.error(`[WHIP] stats error for ${streamId}:`, err);
+            clearInterval(statsInterval);
+        });
     }, 3000);
 
 });
