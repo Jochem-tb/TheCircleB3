@@ -14,39 +14,29 @@ export class AppComponent implements OnInit {
         // Any initialization logic can go here
     }
 
-    preferCodec(sdp: string, codec: string) {
-        const sdpLines = sdp.split('\n');
-        const mLineIndex = sdpLines.findIndex((line) =>
-            line.startsWith('m=video ')
-        );
-        if (mLineIndex === -1) return sdp;
+    preferCodec(sdp: string, codec: string = 'VP8'): string {
+      const lines = sdp.split('\n');
+      const mLineIdx = lines.findIndex(l => l.startsWith('m=video'));
+      if (mLineIdx === -1) return sdp;
 
-        // Find payload types for the preferred codec (case-insensitive)
-        const codecPayloadTypes = sdpLines
-            .filter(
-                (line) =>
-                    line.startsWith('a=rtpmap:') &&
-                    line.toLowerCase().includes(codec.toLowerCase())
-            )
-            .map((line) => line.match(/a=rtpmap:(\d+) /)![1]);
+      // Collect payload types for the target codec (e.g. VP8)
+      const payloads = lines
+        .filter(l => l.startsWith('a=rtpmap') && l.toUpperCase().includes(`${codec.toUpperCase()}/90000`))
+        .map(l => {
+          const m = l.match(/a=rtpmap:(\d+)\s/);
+          return m ? m[1] : null;
+        })
+        .filter(p => p !== null) as string[];
 
-        if (codecPayloadTypes.length === 0) {
-            console.warn(`No payload types found for codec ${codec}`);
-            return sdp;
-        }
+      if (!payloads.length) {
+        console.warn(`No payload for codec ${codec} found in SDP`);
+        return sdp;
+      }
 
-        const mLineParts = sdpLines[mLineIndex].split(' '); // e.g. m=video 60289 UDP/TLS/RTP/SAVPF 96 97 103 ...
-        const header = mLineParts.slice(0, 3); // m=video 60289 UDP/TLS/RTP/SAVPF
-        const payloadTypes = mLineParts.slice(3);
-
-        // Filter out preferred codec payloads and put them first
-        const newPayloadTypes = codecPayloadTypes.concat(
-            payloadTypes.filter((pt) => !codecPayloadTypes.includes(pt))
-        );
-
-        sdpLines[mLineIndex] = [...header, ...newPayloadTypes].join(' ');
-
-        return sdpLines.join('\n');
+      // Rewrite the m=video line to only include VP8 payloads
+      const parts = lines[mLineIdx].split(' ');
+      lines[mLineIdx] = [...parts.slice(0, 3), ...payloads].join(' ');
+      return lines.join('\n');
     }
 
     async startWhip() {
@@ -117,7 +107,7 @@ export class AppComponent implements OnInit {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
 
-        let patchedSdp = this.preferCodec(pc.localDescription!.sdp!, 'H264');
+        let patchedSdp = this.preferCodec(pc.localDescription!.sdp!, 'VP8');
 
         console.log('📶 Signaling state after offer:', pc.signalingState);
 
