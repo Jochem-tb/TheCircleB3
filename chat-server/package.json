@@ -13,6 +13,7 @@
     "dependencies": {
         "experss": "^0.0.1-security",
         "express": "^5.1.0",
+        "node-fetch": "^3.3.2",
         "readline": "^1.3.0",
         "ws": "^8.18.2"
     },

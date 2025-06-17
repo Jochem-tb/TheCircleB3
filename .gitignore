@@ -138,7 +138,6 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
-chat-server/package-lock.json
 
-# Personal txt file
+# Personal files
 TODO.txt
