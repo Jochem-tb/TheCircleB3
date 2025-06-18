@@ -4,5 +4,5 @@ import { StreamComponent } from './pages/stream/stream.component';
 
 export const routes: Routes = [
     { path: '', component: HomeComponent },           
-    { path: 'stream', component: StreamComponent },
+    { path: 'stream/:streamId', component: StreamComponent },
   ];
