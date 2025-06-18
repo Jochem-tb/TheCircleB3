@@ -11,7 +11,19 @@ const app = express();
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+const getRawBody = require('raw-body');
+app.use((req, res, next) => {
+  getRawBody(req, {
+    length: req.headers['content-length'],
+    limit: '1mb',
+    encoding: true
+  }, function (err, string) {
+    if (err) return next(err);
+    req.rawBody = string;
+    next();
+  });
+});
+app.use(express.json())
 
 // 1) Connectie met MongoDB
 mongoose
