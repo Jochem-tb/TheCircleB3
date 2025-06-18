@@ -31,7 +31,9 @@ services:
     ingest-server:
         build: ./ingest-server
         ports:
-            - "4000:4000" # Adjust depending on how ingest works
+            - "1935:1935" # RTMP ingest
+            - "8000:8000" # HTTP
+            - "8090:8090" # WHIP
         restart: always
         volumes:
             - ./ingest-server/recordings:/app/recordings
