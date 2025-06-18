@@ -1,5 +1,5 @@
-// Import the verifySignature function to check message auth
-import { verifySignature } from '../utils/crypto.js';
+import fetch from 'node-fetch'; // This line is needed to import fetch in Node.js
+import { AUTH_SERVER_URL } from '../config/config.js';
 
 class ChatRoom {
     constructor(userId) {
@@ -27,7 +27,7 @@ class ChatRoom {
 
 
     //Handle incoming messages.
-    handleMessage(ws, raw) {
+    async handleMessage(ws, raw) {
         let msg;
 
         // Parse JSON message
@@ -47,13 +47,17 @@ class ChatRoom {
                 return ws.close();
             }
 
-            // Verify signature against the name claim
-            const valid = verifySignature(`I am ${name}`, publicKey, signature);
-            if (valid) {
+            console.log(`Authentication request for user: ${name}`);
+            //  Verify the signature with the auth server
+            const validVerification = await this.verifyWithAuthServer(name, publicKey, signature);
+
+            if (validVerification) {
+                console.log(`User ${name} authenticated successfully.`);
                 // Store user info on the socket for later use
                 ws.user = { name, publicKey };
                 ws.send(JSON.stringify({ status: 'authenticated', name }));
             } else {
+                console.error(`Authentication failed for user: ${name}`);
                 ws.send(JSON.stringify({ error: 'Invalid signature' }));
                 ws.close();
             }
@@ -120,6 +124,23 @@ class ChatRoom {
             },
             timeout: 2000
         });
+    }    
+
+    // Verify the user's signature with the auth server.
+    async verifyWithAuthServer(name, publicKey, signature) {
+        try {
+            const res = await fetch(`${AUTH_SERVER_URL}/verify`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, publicKey, signature })
+            });
+
+            const result = await res.json();
+            return result.validVerification === true;
+        } catch (err) {
+            console.error('Auth server error:', err);
+            return false;
+        }
     }
 }
 
