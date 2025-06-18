@@ -2,7 +2,7 @@ const authServices = require('../services/auth.services');
 const logger = require('../utils/logger');
 const handleError = require('../utils/errorHandler');
 
-exports.getChallenge = (req, res) => {
+exports.getChallenge = async (req, res, next) => {
   try {
     const username = req.query.username;
     logger.info(`Generating challenge for user: ${username}`);
@@ -12,7 +12,7 @@ exports.getChallenge = (req, res) => {
       return res.status(400).send('Username is required.');
     }
 
-    const result = authServices.generateChallengeForUser(username);
+    const result = await authServices.generateChallengeForUser(username);
     console.info(`Challenge generated for user: ${username}`, result);
 
     res.json(result);
@@ -21,7 +21,7 @@ exports.getChallenge = (req, res) => {
   }
 };
 
-exports.postAuthenticate = (req, res) => {
+exports.postAuthenticate = (req, res, next) => {
   try {
     const { username, signature, public_key } = req.body;
     logger.info(`Authenticating user: ${username}`);
@@ -32,10 +32,14 @@ exports.postAuthenticate = (req, res) => {
     }
 
     const result = authServices.verifyUser(username, signature, public_key);
+    const payload = {
+      username: username,
+      authenticated: result,
+    };
     console.info(`Authentication result for user ${username}:`, result);
 
     if (result) {
-      res.send(`Authenticated as ${username}`);
+      res.send(payload);
     } else {
       res.status(401).send('Invalid signature.');
     }
