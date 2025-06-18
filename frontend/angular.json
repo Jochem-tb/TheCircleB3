@@ -21,6 +21,7 @@
             ],
             "tsConfig": "projects/viewer/tsconfig.app.json",
             "assets": [
+              "projects/viewer/src/assets",
               {
                 "glob": "**/*",
                 "input": "projects/viewer/public"
@@ -79,6 +80,7 @@
             ],
             "tsConfig": "projects/viewer/tsconfig.spec.json",
             "assets": [
+              "projects/viewer/src/assets",
               {
                 "glob": "**/*",
                 "input": "projects/viewer/public"
@@ -110,6 +112,7 @@
             ],
             "tsConfig": "projects/streamer/tsconfig.app.json",
             "assets": [
+              "projects/streamer/src/assets",
               {
                 "glob": "**/*",
                 "input": "projects/streamer/public"
@@ -168,6 +171,7 @@
             ],
             "tsConfig": "projects/streamer/tsconfig.spec.json",
             "assets": [
+              "projects/streamer/src/assets",
               {
                 "glob": "**/*",
                 "input": "projects/streamer/public"
