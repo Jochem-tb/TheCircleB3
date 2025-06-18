@@ -1,8 +1,11 @@
 import { Component } from '@angular/core';
+import { ChatComponent } from '../../components/chat/chat';
 
 @Component({
   selector: 'app-stream',
-  imports: [],
+  imports: [
+    ChatComponent
+  ],
   templateUrl: './stream.component.html',
   styleUrl: './stream.component.css'
 })
