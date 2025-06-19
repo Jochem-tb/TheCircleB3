@@ -1,5 +1,5 @@
 const generateChallenge = require('../utils/challenge');
-const verifySignature = require('../utils/verifySignature');
+const { verifySignatureChallenge } = require('../utils/verifySignature');
 const logger = require('../utils/logger');
 const { connect } = require('../utils/mongodbClient');
 
@@ -34,7 +34,7 @@ exports.verifyUser = (username, signature, public_key) => {
     throw new Error('Challenge not found or expired.');
   }
 
-  return verifySignature(challenge, public_key, signature);
+  return verifySignatureChallenge(challenge, public_key, signature);
 };
 
 exports._challenges = challenges;
