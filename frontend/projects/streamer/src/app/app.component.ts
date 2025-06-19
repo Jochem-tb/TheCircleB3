@@ -66,18 +66,36 @@ export class AppComponent implements OnInit {
 
     const preferVP8 = (sdp: string): string => {
       const lines = sdp.split('\n');
-      const mVideoIdx = lines.findIndex((l) => l.startsWith('m=video'));
-      if (mVideoIdx === -1) return sdp;
+      const vp8Payloads = new Set<string>();
 
-      const vp8Payloads = lines
-        .filter((l) => l.startsWith('a=rtpmap') && l.toLowerCase().includes('vp8/90000'))
-        .map((l) => l.match(/a=rtpmap:(\d+)/)?.[1])
-        .filter(Boolean) as string[];
+      // Collect payloads for VP8
+      for (const line of lines) {
+        if (line.startsWith('a=rtpmap') && line.toLowerCase().includes('vp8/90000')) {
+          const match = line.match(/a=rtpmap:(\d+)/);
+          if (match) vp8Payloads.add(match[1]);
+        }
+      }
 
-      const mLine = lines[mVideoIdx].split(' ');
-      lines[mVideoIdx] = [...mLine.slice(0, 3), ...vp8Payloads].join(' ');
-      return lines.join('\n');
+      const mVideoIndex = lines.findIndex((l) => l.startsWith('m=video'));
+      if (mVideoIndex === -1 || vp8Payloads.size === 0) return sdp;
+
+      // Replace m=video line to only include VP8 payloads
+      const parts = lines[mVideoIndex].split(' ');
+      const newMLine = [...parts.slice(0, 3), ...[...vp8Payloads]].join(' ');
+      lines[mVideoIndex] = newMLine;
+
+      // Filter out all non-VP8-related lines
+      const filteredLines = lines.filter((line) => {
+        if (!line.startsWith('a=')) return true; // keep non-a lines
+        if (line.startsWith('a=rtpmap') || line.startsWith('a=fmtp') || line.startsWith('a=rtcp-fb')) {
+          return [...vp8Payloads].some((pt) => line.includes(`:${pt}`));
+        }
+        return true;
+      });
+
+      return filteredLines.join('\n');
     };
+
 
     const patchedSdp = preferVP8(this.pc.localDescription!.sdp!);
     console.log('🛠️ Patched SDP with preferred codec (VP8)');

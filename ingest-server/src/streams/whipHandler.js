@@ -143,37 +143,55 @@ router.post("/:streamId", async (req, res) => {
             // 4c) Pick only VP8 for video, all for audio
             const codecs = [];
             for (const [pt, codec] of payloadTypeToCodec.entries()) {
-                if (m.type === "video") {
-                    if (codec.mimeType.toLowerCase() === "video/vp8") {
-                        codecs.push(codec);
-                    } else {
-                        console.log(
-                            `[WHIP] skipping ${codec.mimeType} (payload ${pt})`
-                        );
-                    }
-                } else {
-                    // audio: include all (or filter to 'audio/opus' if you prefer)
+                if (m.type === "video" && codec.mimeType.toLowerCase() === "video/vp8") {
                     codecs.push(codec);
+                } else {
+                    console.log(`[WHIP] Skipping unsupported codec: ${codec.mimeType}`);
                 }
             }
 
             console.log(`[WHIP] Final codecs for ${m.type}:`, codecs);
 
-            // 4d) Produce on the transport
+            console.log(`[WHIP] Will produce with SSRC:`, m.ssrc);
+            if (m.ssrc && m.ssrc < 1) {
+                console.warn(`[WHIP] SSRC ${m.ssrc} is invalid, generating random SSRC`);
+                m.ssrc = Math.floor(Math.random() * 1e6);
+            }
+
+            // Zoek de SSRC-line met cname attribuut
+            const ssrcLine = m.ssrcs?.find((s) => s.attribute === 'cname');
+
+            const ssrcFromLine = ssrcLine?.id ? Number(ssrcLine.id) : undefined;
+            const finalSsrc = m.ssrc || ssrcFromLine || Math.floor(Math.random() * 1e6);
+
             const producer = await transport.produce({
-                kind: m.type,
-                rtpParameters: {
-                    codecs,
-                    encodings: [
-                        { ssrc: m.ssrc || Math.floor(Math.random() * 1e6) },
-                    ],
-                    rtcp: {
-                        cname: `cname-${streamId}`,
-                        reducedSize: true,
-                        mux: true,
-                    },
+            kind: m.type,
+            rtpParameters: {
+                codecs,
+                encodings: [
+                { ssrc: finalSsrc }
+                ],
+                rtcp: {
+                cname: `cname-${streamId}`,
+                reducedSize: true,
+                mux: true,
                 },
+            },
             });
+
+            console.log("Poducer paused?", producer.paused);
+
+            console.log(`[WHIP] Producer created: ${producer.id}, kind=${producer.kind}`);
+            console.log(`[WHIP] Producer RTP parameters:`, producer.rtpParameters);
+
+            // Add periodic stats logging for the producer
+            setInterval(async () => {
+            const stats = await producer.getStats();
+                stats.forEach((report) => {
+                    console.log(`[WHIP] Producer stats: ssrc=${report.ssrc}, type=${report.type}, kind=${report.kind}, packetsSent=${report.packetsSent}, bytesSent=${report.bytesSent}`);
+                });
+            }, 2000);
+
 
             console.log(`[WHIP] Using SSRC: ${m.ssrc}`);
 
@@ -221,21 +239,14 @@ router.post("/:streamId", async (req, res) => {
         };
 
         parsed.media.forEach((m, i) => {
-            // We want to receive anything the browser sends (sendrecv or sendonly)
-            const clientSending =
-                m.direction === "sendrecv" || m.direction === "sendonly";
+            const clientSending = m.direction === "sendrecv" || m.direction === "sendonly";
 
-            // Build a list of payload IDs we actually want to answer (only VP8)
             const payloadsArray = m.rtp
-                .filter((r) =>
-                    m.type === "video" ? r.codec.toLowerCase() === "vp8" : true
-                )
+                .filter((r) => m.type === "video" && r.codec.toLowerCase() === "vp8")
                 .map((r) => String(r.payload));
 
-            // Join into a space-separated string for the m= line
             const payloads = payloadsArray.join(" ");
 
-            // Base media answer object
             const mediaAnswer = {
                 type: m.type,
                 port: clientSending ? 9 : 0,
@@ -248,18 +259,9 @@ router.post("/:streamId", async (req, res) => {
             if (clientSending) {
                 Object.assign(mediaAnswer, {
                     connection: { version: 4, ip: "127.0.0.1" },
-                    // Only include the rtp entries matching our payloadsArray
-                    rtp: m.rtp.filter((r) =>
-                        payloadsArray.includes(String(r.payload))
-                    ),
-                    // Filter fmtp to only VP8
-                    fmtp: (m.fmtp || []).filter((f) =>
-                        payloadsArray.includes(String(f.payload))
-                    ),
-                    // Filter rtcp-fb to only VP8
-                    rtcpFb: (m.rtcpFb || []).filter((fb) =>
-                        payloadsArray.includes(String(fb.payload))
-                    ),
+                    rtp: m.rtp.filter((r) => payloadsArray.includes(String(r.payload))),
+                    fmtp: (m.fmtp || []).filter((f) => payloadsArray.includes(String(f.payload))),
+                    rtcpFb: (m.rtcpFb || []).filter((fb) => payloadsArray.includes(String(fb.payload))),
                     setup: "active",
                     iceUfrag: ice.usernameFragment,
                     icePwd: ice.password,
@@ -367,6 +369,7 @@ router.post("/:streamId", async (req, res) => {
         });
     }, 10000);
 });
+
 
 //Check if nessesary to have this endpoint
 // DELETE /whip/:streamId -- teardown the ingest and all producers/viewers

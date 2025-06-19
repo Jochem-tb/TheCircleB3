@@ -94,7 +94,7 @@ export default function registerViewerHandlers(httpServer) {
                         console.log("Error fetching transport stats", err);
                         clearInterval(statsInterval);
                     }
-                }, 3000);
+                }, 10000);
 
                 cb("connected");
             }
@@ -102,72 +102,56 @@ export default function registerViewerHandlers(httpServer) {
 
         // 4️⃣ Consume all existing producers
         socket.on("consume", async ({ streamId, rtpCapabilities }, cb) => {
-            console.log(
-                `[consume] Viewer ${socket.id} consuming stream ${streamId}`
-            );
             const stream = streamManager.getStream(streamId);
-            console.log(
-                `▶️ [consume] Stream found for ID ${streamId}: ${
-                    stream ? "Yes" : "No"
-                }`
-            );
             const viewer = stream.viewers.get(socket.id);
-            console.log(
-                `▶️ [consume] Viewer found for Socket.ID ${socket.id}: ${
-                    viewer ? "Yes" : "No"
-                }`
-            );
             const recvTransport = getViewerTransport(socket.id);
-
-            console.log(
-                `▶️ [consume] Transport found for Socket.ID ${socket.id}: ${
-                    recvTransport ? "Yes" : "No"
-                }`
-            );
             const consumerInfos = [];
 
-            // Log producers for debugging
-            console.log("Stream producers:", [...stream.producers.keys()]);
-
             for (const producer of stream.producers.values()) {
-                console.log(
-                    `▶️ [consume] Checking producer ${producer.id} for viewer ${socket.id}`
-                );
-                // Only consume if compatible
-                if (
-                    !getRouter(streamId).canConsume({
-                        producerId: producer.id,
-                        rtpCapabilities,
-                    })
-                ) {
+                if (!getRouter(streamId).canConsume({ producerId: producer.id, rtpCapabilities })) {
                     console.warn(
-                        `Producer ${producer.id} cannot be consumed by viewer`
+                        `Cannot consume producer ${producer.id} for viewer ${socket.id} - RTP capabilities mismatch`
                     );
                     continue;
                 }
 
-                // Create the server-side consumer (paused by default)
                 const consumer = await recvTransport.consume({
                     producerId: producer.id,
                     rtpCapabilities,
                     paused: false,
                 });
-                console.log(
-                    `▶️ [consume] Created consumer ${consumer.id} for producer ${producer.id}`
+
+                // 🔧 Filter codecs (verwijder rtx)
+                consumer.rtpParameters.codecs = consumer.rtpParameters.codecs.filter(
+                (c) => !c.mimeType.includes("rtx")
                 );
 
-                // Store it for resume
+                // 🔧 Strip 'rtx' veld uit encodings
+                consumer.rtpParameters.encodings = consumer.rtpParameters.encodings.map((e) => {
+                const { rtx, ...rest } = e;
+                return rest;
+                });
+
+                await consumer.requestKeyFrame();
+                console.log(`Requested keyframe for consumer ${consumer.id}`);
+
+                console.log("🔍 Consumer RTP Parameters:", consumer.rtpParameters);
+                console.log("🧪 Producer RTP Parameters:", producer.rtpParameters);
+
+                console.log("Producer encodings:", producer.rtpParameters.encodings);
+                console.log("Consumer encodings:", consumer.rtpParameters.encodings);
+
                 viewer.consumers.set(consumer.id, consumer);
-                console.log(
-                    `▶️ [consume] Added consumer ${consumer.id} to viewer ${socket.id}`
-                );
-
                 consumerInfos.push({
                     id: consumer.id,
                     producerId: producer.id,
                     kind: consumer.kind,
                     rtpParameters: consumer.rtpParameters,
                 });
+
+                // Request a keyframe immediately after creating the consumer
+                await consumer.requestKeyFrame();
+                console.log(`Requested keyframe for consumer ${consumer.id}`);
             }
 
             cb(consumerInfos);
@@ -190,7 +174,9 @@ export default function registerViewerHandlers(httpServer) {
                         `▶️ [resume] Found consumer ${consumerId} for viewer ${socket.id} i am going to RESUME IT NOW`
                     );
                     const consumer = viewer.consumers.get(consumerId);
+                    console.log(`⏯️ About to resume consumer ${consumer.id}`);
                     await consumer.resume();
+                    console.log(`▶️ Resumed consumer ${consumer.id}`);
                     break;
                 }
             }
@@ -254,13 +240,13 @@ export default function registerViewerHandlers(httpServer) {
 
             const producers = stream.producers;
             for (const producer of producers.values()) {
-                console.log(
-                    `▶️ [debug] Producer ID: ${producer.id}, Kind: ${
-                        producer.kind
-                    }, RTP Parameters: ${JSON.stringify(
-                        producer.rtpParameters
-                    )}`
-                );
+                // console.log(
+                //     `▶️ [debug] Producer ID: ${producer.id}, Kind: ${
+                //         producer.kind
+                //     }, RTP Parameters: ${JSON.stringify(
+                //         producer.rtpParameters
+                //     )}`
+                // );
                 const canConsume = router.canConsume({
                     producerId: producer.id,
                     rtpCapabilities: rtpCapabilities,

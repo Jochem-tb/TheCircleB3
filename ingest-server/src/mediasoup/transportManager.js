@@ -43,7 +43,7 @@ export async function createViewerTransport(viewerId, streamId) {
     const transport = await router.createWebRtcTransport({
         listenIps: config.mediasoup.listenIps,
         enableUdp: true,
-        enableTcp: false,
+        enableTcp: true,
         preferUdp: true,
         initialAvailableOutgoingBitrate: 1000000,
     });
