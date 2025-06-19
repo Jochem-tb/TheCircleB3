@@ -19,6 +19,16 @@ export function getRouter(streamId) {
     return routers.get(streamId);
 }
 
+export function displayRouters() {
+    console.log("Current Routers:");
+    routers.forEach((router, streamId) => {
+        console.log(
+            `Stream ID: ${streamId}, Router ID: ${router.id}, Router Info:`,
+            router
+        );
+    });
+}
+
 export function removeRouter(streamId) {
     const r = routers.get(streamId);
     if (r) {

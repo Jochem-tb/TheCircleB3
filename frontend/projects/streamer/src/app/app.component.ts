@@ -1,5 +1,5 @@
 import { RouterOutlet } from '@angular/router';
-import { Injectable, NgZone } from '@angular/core';
+import { Injectable, NgZone, viewChild } from '@angular/core';
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { MediasoupService } from './MediasoupService';
 
@@ -16,21 +16,23 @@ export class AppComponent implements OnInit {
     @ViewChild('videoPreview', { static: true })
     videoPreview!: ElementRef<HTMLVideoElement>;
 
+    @ViewChild('streamingVideo', { static: true })
+    streamingVideo!: ElementRef<HTMLVideoElement>;
+
     ngOnInit() {
         // Any initialization logic can go here
     }
 
     loadStream() {
         console.log('🔄 Starting WHIP stream...');
-        const videoElem = document.getElementById(
-            'streamingDiv'
-        ) as HTMLVideoElement | null;
-        if (!videoElem) {
+        const videoStreamElem = this.streamingVideo.nativeElement;
+        videoStreamElem.muted = false;
+        if (!videoStreamElem) {
             console.error('❌ Could not find video element with ID #videoElem');
             return;
         }
         this.mediasoupService
-            .initStream('test-stream', videoElem)
+            .initStream('test-stream', videoStreamElem)
             .catch((err) => {
                 console.error('❌ Error starting WHIP stream:', err);
             });

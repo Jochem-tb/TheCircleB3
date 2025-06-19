@@ -35,6 +35,8 @@ export default {
                         { type: "ccm", parameter: "fir" },
                         { type: "goog-remb" },
                     ],
+                    parameters: {},
+                    preferredPayloadType: 96,
                 },
 
                 // Support VP9

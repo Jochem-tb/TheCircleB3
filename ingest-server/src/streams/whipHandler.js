@@ -37,7 +37,10 @@ router.post("/:streamId", async (req, res) => {
         if (!streamManager.hasStream(streamId)) {
             await streamManager.createStream(streamId);
 
-            const transport = await createIngestTransport(streamId);
+            if (!getIngestTransport(streamId)) {
+                await createIngestTransport(streamId);
+            }
+            const transport = getIngestTransport(streamId);
 
             transport.on("dtlsstatechange", (state) => {
                 if (state === "closed") streamManager.removeStream(streamId);
@@ -293,7 +296,7 @@ router.post("/:streamId", async (req, res) => {
             return;
         }
 
-        stats.forEach(stat => {
+        stats.forEach((stat) => {
             if (stat.bytesReceived === undefined) return;
 
             // Use stat.id (or stat.kind) as the key
@@ -302,18 +305,20 @@ router.post("/:streamId", async (req, res) => {
 
             if (prev) {
                 const deltaBytes = stat.bytesReceived - prev.bytes;
-                const deltaSecs  = (now - prev.timestamp) / 1000;
+                const deltaSecs = (now - prev.timestamp) / 1000;
                 // bytes → bits → kilobits
                 const kbps = ((deltaBytes * 8) / deltaSecs / 1000).toFixed(1);
                 console.debug(
-                    `[WHIP] ${new Date().toISOString()} ${streamId} ${stat.kind} kbps=${kbps}`
+                    `[WHIP] ${new Date().toISOString()} ${streamId} ${
+                        stat.kind
+                    } kbps=${kbps}`
                 );
             }
 
             // Store current for next round
             lastStats.set(key, {
                 bytes: stat.bytesReceived,
-                timestamp: now
+                timestamp: now,
             });
         });
     }
@@ -325,7 +330,7 @@ router.post("/:streamId", async (req, res) => {
             clearInterval(statsInterval);
             return;
         }
-        logRate(streamId).catch(err => {
+        logRate(streamId).catch((err) => {
             console.error(`[WHIP] stats error for ${streamId}:`, err);
             clearInterval(statsInterval);
         });
