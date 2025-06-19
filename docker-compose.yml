@@ -5,43 +5,63 @@ services:
       - "8080:8080"
     restart: always
     env_file:
-        - .env
+      - .env
 
-    frontend-viewer-dev:
-        build:
-            context: ./frontend
-            dockerfile: Dockerfile.dev
-        ports:
-            - "4200:4200"
-        volumes:
-            - ./frontend:/app
-            - /app/node_modules
-        command: npm run start -- --project viewer --host 0.0.0.0 --poll=1000
-        environment:
-            - CHOKIDAR_USEPOLLING=true
+  truyou-auth:
+    build: ./truyou-auth
+    ports:
+      - "3000:3000"
+    restart: always
 
-    # DOESNT WORK
-    frontend-viewer:
-        build:
-            context: ./frontend
-            args:
-                APP_NAME: viewer
-        ports:
-            - "4200:80"
-        # depends_on:
-        #   - chat-server
-        restart: always
-    # DOESNT WORK
-    frontend-streamer:
-        build:
-            context: ./frontend
-            args:
-                APP_NAME: streamer
-        ports:
-            - "4300:80"
-        # depends_on:
-        #   - truYou-auth
-        restart: always
+  mongo:
+    image: mongo
+    ports:
+      - "27017:27017"
+    restart: always
+    volumes:
+      - mongo-data:/data/db
+
+  logging-service:
+    build: ./logging-service
+    ports:
+      - "5200:5200"
+    restart: always
+    environment:
+      MONGO_URI: ${MONGO_URI}
+      PORT: "5200"
+    env_file:
+      - .env
+
+  frontend-viewer:
+    build:
+      context: ./frontend
+      args:
+        APP_NAME: viewer
+    ports:
+      - "4200:80"
+    restart: always
+
+  frontend-streamer:
+    build:
+      context: ./frontend
+      args:
+        APP_NAME: streamer
+    ports:
+      - "4300:80"
+    restart: always
+
+  frontend-viewer-dev:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "4200:4200"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: npm run start -- --project viewer --host 0.0.0.0 --poll=1000
+    environment:
+      - CHOKIDAR_USEPOLLING=true
 
   ingest-server:
     build: ./ingest-server
@@ -70,31 +90,6 @@ services:
       - streaming-recordings:/app/recordings
     depends_on:
       - streaming-server
-
-  logging-service:
-    build: ./logging-service
-    ports:
-      - "5200:5200"
-    restart: always
-    environment:
-      MONGO_URI: ${MONGO_URI}
-      PORT: "5200"
-    env_file:
-      - .env
-
-  mongo:
-    image: mongo
-    ports:
-      - "27017:27017"
-    restart: always
-    volumes:
-      - mongo-data:/data/db
-
-  truyou-auth:
-    build: ./truyou-auth
-    ports:
-      - "3000:3000"
-    restart: always
 
 volumes:
   mongo-data:
