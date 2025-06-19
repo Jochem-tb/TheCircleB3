@@ -1,3 +1,4 @@
+// File: ingest-server/src/streams/whipHandler.js
 import express from "express";
 import sdpTransform from "sdp-transform";
 import streamManager from "./StreamManager.js";
@@ -13,11 +14,27 @@ router.post("/:streamId", async (req, res) => {
     const { streamId } = req.params;
     const sdpOffer = req.body;
 
+    console.log(`[WHIP] Received SDP offer for streamId ${streamId}`);
+    console.log(`[WHIP] SDP Offer:\n${sdpOffer}`);
+
     try {
         // STEP 1: Parse SDP offer
         console.log(`[WHIP] Received SDP offer for streamId ${streamId}`);
         const parsed = sdpTransform.parse(sdpOffer);
+        console.log(`[WHIP] Parsed SDP Offer:\n`, JSON.stringify(parsed, null, 2));
         const media0 = parsed.media[0];
+        if (media0) {
+            console.log(
+                `[WHIP] Media 0: type=${media0.type}, mid=${media0.mid}, direction=${media0.direction}`
+            );
+            console.log(
+                `[WHIP] Media 0 RTP:`, media0.rtp.map(
+                    (r) => `${r.payload} ${r.codec} ${r.rate}`
+                ).join(", ")
+            );
+        } else {
+            console.warn(`[WHIP] No media found in SDP offer for streamId ${streamId}`);
+        }
 
         // Extract ICE and DTLS params from SDP offer (handle fallback)
         console.log(`[WHIP] Parsing SDP offer for streamId ${streamId}`);
@@ -63,6 +80,15 @@ router.post("/:streamId", async (req, res) => {
             `[WHIP] Stream ${streamId} exists, using existing transport`
         );
         const transport = getIngestTransport(streamId);
+
+
+        const router = getRouter(streamId);
+        if (router) {
+            console.log(`[WHIP] Router RTP capabilities for streamId ${streamId}:`);
+            console.log(JSON.stringify(router.rtpCapabilities, null, 2));
+        } else {
+            console.warn(`[WHIP] No router found for streamId ${streamId}`);
+        }
 
         // STEP 3: Connect transport with DTLS params from offer
         console.log("Step 3: Connecting transport for streamId");
@@ -149,6 +175,11 @@ router.post("/:streamId", async (req, res) => {
                 },
             });
 
+            console.log(`[WHIP] Using SSRC: ${m.ssrc}`);
+
+            const stats = await producer.getStats();
+            console.log(`[WHIP] Producer stats:`, stats);
+
             const stream = streamManager.getStream(streamId);
             if (!stream) {
                 console.error(
@@ -158,7 +189,7 @@ router.post("/:streamId", async (req, res) => {
                 console.log(
                     `[WHIP] Registering producer ${producer.id} to stream ${streamId}`
                 );
-                stream.producers.set(producer.id, producer);
+                stream.setProducer(producer);
             }
         }
 

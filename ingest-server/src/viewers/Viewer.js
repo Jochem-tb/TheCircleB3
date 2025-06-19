@@ -1,3 +1,4 @@
+// File: ingest-server/src/viewers/Viewer.js
 export default class Viewer {
     constructor(id, transport) {
         this.id = id;

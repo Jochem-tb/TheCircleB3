@@ -1,3 +1,4 @@
+// File: src/config/index.js
 import os from "os";
 
 const getLocalIp = () => {

@@ -123,72 +123,81 @@ export class MediasoupService {
                     kind: info.kind,
                     rtpParameters: info.rtpParameters,
                 });
-                console.log(
-                    `🎥 Consumer created: ${consumer.id}, kind=${consumer.kind}`
-                );
                 this.consumers.push(consumer);
-                console.log(
-                    `Consumer ${consumer.id} created for producer ${info.producerId} added to consumers list: ${this.consumers.length} consumers`
-                );
 
-                // Log track events for debugging packet flow
-                consumer.on('transportclose', () =>
-                    console.warn(`Consumer ${consumer.id} transport closed`)
-                );
-                // consumer.on('producerclose', () =>
-                //     console.warn(`Producer for consumer ${consumer.id} closed`)
-                // );
-                consumer.track.onmute = () =>
-                    console.log(`Track ${consumer.id} muted`);
-                consumer.track.onunmute = () =>
-                    console.log(`Track ${consumer.id} unmuted`);
+                console.log(`🎥 Consumer created: ${consumer.id}, kind=${consumer.kind}`);
 
-                console.log(
-                    `🎬 Consumer created: ${consumer.id}, kind=${consumer.kind}`
-                );
-                this.ngZone.runOutsideAngular(() => {
-                    console.log(
-                        `🔄 Setting up video element for consumer ${consumer.id}`
-                    );
-                    if (consumer.kind === 'video') {
-                        console.log(
-                            `Consumer track = ${consumer.track.kind}, readyState=${consumer.track.readyState}`
-                        );
-                        const stream = new MediaStream([consumer.track]);
-                        console.log('stream object,', stream);
+                // Attach events to the consumer's track
+                consumer.track.onmute = () => console.log(`🔇 Track ${consumer.id} muted`);
+                consumer.track.onunmute = () => console.log(`📡 Track ${consumer.id} unmuted`);
+
+                // For video, attach its track to the video element
+                if (consumer.kind === 'video') {
+                    // Ensure track is enabled
+                    consumer.track.enabled = true;
+
+                    const stream = new MediaStream([consumer.track]);
+                    // Run outside Angular zone if needed
+                    this.ngZone.runOutsideAngular(() => {
+                        console.log(`🔄 Setting up video element for consumer ${consumer.id}`);
                         videoElement.srcObject = stream;
-                        videoElement.muted = true;
-                        console.log(
-                            `🎥 Video element: ${videoElement} set for consumer ${consumer.id}`
-                        );
-                        videoElement.play().catch(console.error);
-                    }
-                });
+                        videoElement.muted = false; // make sure video element is not muted to see audio if necessary
 
-                // 7️⃣ Resume server-side
-                console.log(`▶️ Resuming consumer ${info.id}`);
-                await this.request('resume', { consumerId: info.id });
+                        // Wait until metadata is loaded before playing
+                        videoElement.onloadedmetadata = () => {
+                            console.log('📑 Video metadata loaded, attempting playback');
+                            videoElement.play().then(() => {
+                                console.log(`✅ Video playback started for consumer ${consumer.id}`);
+                                console.log('🎞️ Track settings:', consumer.track.getSettings?.());
+                                console.log('🎞️ Track readyState:', consumer.track.readyState);
+                                console.log('🎞️ MediaStream tracks:', stream.getTracks());
+                                console.log('🎞️ Video element readyState:', videoElement.readyState);
+                                console.log('🎞️ Video element paused:', videoElement.paused);
 
-                // 8️⃣ Periodically log consumer stats to verify packet arrival
+                            }).catch((err) => {
+                                console.error('Error during video playback:', err);
+                            });
+                        };
+
+                        // Fallback in case onloadedmetadata does not fire
+                        setTimeout(() => {
+                            if (videoElement.paused) {
+                                videoElement.play().then(() => {
+                                    console.log(`✅ Fallback: Video playback started for consumer ${consumer.id}`);
+                                    console.log('🎞️ Track settings:', consumer.track.getSettings?.());
+                                    console.log('🎞️ Track readyState:', consumer.track.readyState);
+                                    console.log('🎞️ MediaStream tracks:', stream.getTracks());
+                                    console.log('🎞️ Video element readyState:', videoElement.readyState);
+                                    console.log('🎞️ Video element paused:', videoElement.paused);
+
+                                }).catch((err) => {
+                                    console.error('Fallback error during video playback:', err);
+                                });
+                            }
+                        }, 1000);
+                    });
+                }
+
+                // Resume consumer on server
+                console.log(`▶️ Resuming consumer ${consumer.id}`);
+                await this.request('resume', { consumerId: consumer.id });
+
+                // Optionally, start logging consumer stats (unchanged code)
                 setInterval(async () => {
                     try {
-                        // Iterate stats entries and log key metrics
                         const stats = await consumer.getStats();
+                        
                         stats.forEach((stat: any) => {
-                            if (
-                                stat.type === 'inbound-rtp' &&
-                                stat.kind === 'video'
-                            ) {
+                            if (stat.type === 'inbound-rtp' && stat.kind === 'video') {
+                                console.log(`📈 Packets received:`, stat.packetsReceived);
+                                console.log(`📈 Frames decoded:`, stat.framesDecoded);
                                 console.log(
-                                    `🔍 Consumer ${consumer.id} inbound RTP: packetsReceived=${stat.packetsReceived} bytesReceived=${stat.bytesReceived} framesDecoded=${stat.framesDecoded}`
+                                    `🔍 Consumer ${consumer.id} inbound RTP: packetsReceived=${stat.packetsReceived}, bytesReceived=${stat.bytesReceived}, framesDecoded=${stat.framesDecoded}`
                                 );
                             }
                         });
                     } catch (err) {
-                        console.error(
-                            `Error getting stats for consumer ${consumer.id}`,
-                            err
-                        );
+                        console.error(`Error getting stats for consumer ${consumer.id}`, err);
                     }
                 }, 1000);
             }

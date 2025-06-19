@@ -1,3 +1,4 @@
+// File: ingest-server/src/mediasoup/transportManager.js
 import config from "../config/index.js";
 import { getRouter } from "./routerManager.js";
 
@@ -42,7 +43,7 @@ export async function createViewerTransport(viewerId, streamId) {
     const transport = await router.createWebRtcTransport({
         listenIps: config.mediasoup.listenIps,
         enableUdp: true,
-        enableTcp: true,
+        enableTcp: false,
         preferUdp: true,
         initialAvailableOutgoingBitrate: 1000000,
     });
