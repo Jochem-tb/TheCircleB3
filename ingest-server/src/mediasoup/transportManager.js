@@ -46,6 +46,7 @@ export async function createViewerTransport(viewerId, streamId) {
         enableTcp: true,
         preferUdp: true,
         initialAvailableOutgoingBitrate: 1000000,
+        iceServers: config.mediasoup.iceServers,
     });
     console.log(
         `[Viewer] Created transport for viewerId ${viewerId} (id=${transport.id})`

@@ -108,7 +108,12 @@ export default function registerViewerHandlers(httpServer) {
             const consumerInfos = [];
 
             for (const producer of stream.producers.values()) {
-                if (!getRouter(streamId).canConsume({ producerId: producer.id, rtpCapabilities })) {
+                if (
+                    !getRouter(streamId).canConsume({
+                        producerId: producer.id,
+                        rtpCapabilities,
+                    })
+                ) {
                     console.warn(
                         `Cannot consume producer ${producer.id} for viewer ${socket.id} - RTP capabilities mismatch`
                     );
@@ -118,28 +123,42 @@ export default function registerViewerHandlers(httpServer) {
                 const consumer = await recvTransport.consume({
                     producerId: producer.id,
                     rtpCapabilities,
-                    paused: false,
+                    paused: true,
                 });
 
                 // 🔧 Filter codecs (verwijder rtx)
-                consumer.rtpParameters.codecs = consumer.rtpParameters.codecs.filter(
-                (c) => !c.mimeType.includes("rtx")
-                );
+                consumer.rtpParameters.codecs =
+                    consumer.rtpParameters.codecs.filter(
+                        (c) => !c.mimeType.includes("rtx")
+                    );
 
                 // 🔧 Strip 'rtx' veld uit encodings
-                consumer.rtpParameters.encodings = consumer.rtpParameters.encodings.map((e) => {
-                const { rtx, ...rest } = e;
-                return rest;
-                });
+                consumer.rtpParameters.encodings =
+                    consumer.rtpParameters.encodings.map((e) => {
+                        const { rtx, ...rest } = e;
+                        return rest;
+                    });
 
                 await consumer.requestKeyFrame();
                 console.log(`Requested keyframe for consumer ${consumer.id}`);
 
-                console.log("🔍 Consumer RTP Parameters:", consumer.rtpParameters);
-                console.log("🧪 Producer RTP Parameters:", producer.rtpParameters);
+                console.log(
+                    "🔍 Consumer RTP Parameters:",
+                    consumer.rtpParameters
+                );
+                console.log(
+                    "🧪 Producer RTP Parameters:",
+                    producer.rtpParameters
+                );
 
-                console.log("Producer encodings:", producer.rtpParameters.encodings);
-                console.log("Consumer encodings:", consumer.rtpParameters.encodings);
+                console.log(
+                    "Producer encodings:",
+                    producer.rtpParameters.encodings
+                );
+                console.log(
+                    "Consumer encodings:",
+                    consumer.rtpParameters.encodings
+                );
 
                 viewer.consumers.set(consumer.id, consumer);
                 consumerInfos.push({

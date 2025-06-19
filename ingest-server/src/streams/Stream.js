@@ -6,10 +6,19 @@ export default class Stream {
         this.id = id;
         this.producers = new Map();
         this.viewers = new Map();
+        this._keyframesInterval = null;
     }
 
     setProducer(producer) {
         this.producers.set(producer.id, producer);
+        if (this._keyframesInterval) {
+            clearInterval(_keyframesInterval);
+            this._keyframesInterval = setInterval(() => {
+                this.producers.forEach((producer) => {
+                    producer.requestKeyFrame();
+                });
+            }, 3000);
+        }
     }
 
     addViewer(viewerId, viewerInstance) {
@@ -47,14 +56,15 @@ export default class Stream {
     }
 
     removeViewer(viewerId) {
-        const consumers = this.viewers.get(viewerId);
-        if (consumers) {
-            for (const c of consumers.values()) c.close();
+        const consumer = this.viewers.get(viewerId);
+        if (consumer) {
+            consumer.close();
             this.viewers.delete(viewerId);
         }
     }
 
     close() {
+        this._keyframesInterval = null;
         this.producers.forEach((p) => p.close());
         this.viewers.forEach((_, viewerId) =>
             require("../mediasoup/transportManager.js").removeViewerTransport(

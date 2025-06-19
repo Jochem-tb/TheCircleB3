@@ -9,6 +9,7 @@ export class MediasoupService {
     private device!: Device;
     private recvTransport!: types.Transport;
     private consumers: types.Consumer[] = [];
+    private consumer: types.Consumer | null = null;
 
     constructor(private ngZone: NgZone) {}
 
@@ -74,12 +75,18 @@ export class MediasoupService {
             console.log(`🚚 Recv transport created: ${id}`);
 
             // 4️⃣ Connect DTLS
+            const startTime = Date.now();
+
             console.log('🔒 Connecting recv transport...');
             this.recvTransport.on(
                 'connect',
                 ({ dtlsParameters }, callback, errback) => {
                     console.log(
                         `🔒 Connected transport ${id} with DTLS parameters: ${dtlsParameters}`
+                    );
+                    const connectionTime = Date.now() - startTime;
+                    console.log(
+                        `🔒 Transport connect made in ${connectionTime}`
                     );
                     this.socket.emit(
                         'connectTransport',
@@ -88,14 +95,65 @@ export class MediasoupService {
                             console.log(
                                 `🔒 [connectTransport] Transport connection response: ${res}`
                             );
+                            const transportConnectionTime =
+                                Date.now() - startTime;
+                            console.log(
+                                `🔒 [connectTransport] Transport connection made in ${transportConnectionTime}`
+                            );
                             res === 'connected' ? callback() : errback(res);
                         }
                     );
                 }
             );
 
-            this.recvTransport.on('connectionstatechange', (state) => {
+            this.recvTransport.on('connectionstatechange', async (state) => {
                 console.log(`🔗 Transport state: ${state}`);
+                if (state === 'connected') {
+                    console.log(
+                        '✅ recvTransport is fully connected—now safe to consume'
+                    );
+                    if (this.consumer) {
+                        // Request a keyframe for the current consumer
+                        console.log(
+                            `🔄 Requesting keyframe for consumer ${this.consumer.id}`
+                        );
+                        // Resume consumer on server
+                        console.log(`▶️ Resuming consumer ${this.consumer.id}`);
+                        await this.request('resume', {
+                            consumerId: this.consumer.id,
+                        });
+                        this.socket.emit(
+                            'requestKeyFrame',
+                            {
+                                consumerId: this.consumer!.id,
+                            },
+                            (res: { error: any }) => {
+                                if (res.error) {
+                                    console.error(
+                                        `❌ Error requesting keyframe: ${res.error}`
+                                    );
+                                } else {
+                                    console.log(
+                                        `✅ Keyframe requested for consumer ${
+                                            this.consumer!.id
+                                        }`
+                                    );
+                                }
+                            }
+                        );
+                    } else {
+                        console.error(
+                            '❌ No consumer available to request keyframe trying again in 5 seconds'
+                        );
+                        // Retry after 5 seconds
+                        setTimeout(() => {
+                            this.recvTransport.emit(
+                                'connectionstatechange',
+                                state
+                            );
+                        }, 5000);
+                    }
+                }
             });
 
             // 5️⃣ Consume
@@ -123,13 +181,19 @@ export class MediasoupService {
                     kind: info.kind,
                     rtpParameters: info.rtpParameters,
                 });
+
+                this.consumer = consumer; // Store the current consumer
                 this.consumers.push(consumer);
 
-                console.log(`🎥 Consumer created: ${consumer.id}, kind=${consumer.kind}`);
+                console.log(
+                    `🎥 Consumer created: ${consumer.id}, kind=${consumer.kind}`
+                );
 
                 // Attach events to the consumer's track
-                consumer.track.onmute = () => console.log(`🔇 Track ${consumer.id} muted`);
-                consumer.track.onunmute = () => console.log(`📡 Track ${consumer.id} unmuted`);
+                consumer.track.onmute = () =>
+                    console.log(`🔇 Track ${consumer.id} muted`);
+                consumer.track.onunmute = () =>
+                    console.log(`📡 Track ${consumer.id} unmuted`);
 
                 // For video, attach its track to the video element
                 if (consumer.kind === 'video') {
@@ -139,65 +203,130 @@ export class MediasoupService {
                     const stream = new MediaStream([consumer.track]);
                     // Run outside Angular zone if needed
                     this.ngZone.runOutsideAngular(() => {
-                        console.log(`🔄 Setting up video element for consumer ${consumer.id}`);
+                        console.log(
+                            `🔄 Setting up video element for consumer ${consumer.id}`
+                        );
                         videoElement.srcObject = stream;
                         videoElement.muted = false; // make sure video element is not muted to see audio if necessary
 
                         // Wait until metadata is loaded before playing
                         videoElement.onloadedmetadata = () => {
-                            console.log('📑 Video metadata loaded, attempting playback');
-                            videoElement.play().then(() => {
-                                console.log(`✅ Video playback started for consumer ${consumer.id}`);
-                                console.log('🎞️ Track settings:', consumer.track.getSettings?.());
-                                console.log('🎞️ Track readyState:', consumer.track.readyState);
-                                console.log('🎞️ MediaStream tracks:', stream.getTracks());
-                                console.log('🎞️ Video element readyState:', videoElement.readyState);
-                                console.log('🎞️ Video element paused:', videoElement.paused);
-
-                            }).catch((err) => {
-                                console.error('Error during video playback:', err);
-                            });
+                            console.log(
+                                '📑 Video metadata loaded, attempting playback'
+                            );
+                            videoElement
+                                .play()
+                                .then(() => {
+                                    console.log(
+                                        `✅ Video playback started for consumer ${consumer.id}`
+                                    );
+                                    console.log(
+                                        '🎞️ Track settings:',
+                                        consumer.track.getSettings?.()
+                                    );
+                                    console.log(
+                                        '🎞️ Track readyState:',
+                                        consumer.track.readyState
+                                    );
+                                    console.log(
+                                        '🎞️ MediaStream tracks:',
+                                        stream.getTracks()
+                                    );
+                                    console.log(
+                                        '🎞️ Video element readyState:',
+                                        videoElement.readyState
+                                    );
+                                    console.log(
+                                        '🎞️ Video element paused:',
+                                        videoElement.paused
+                                    );
+                                })
+                                .catch((err) => {
+                                    console.error(
+                                        'Error during video playback:',
+                                        err
+                                    );
+                                });
                         };
 
                         // Fallback in case onloadedmetadata does not fire
                         setTimeout(() => {
                             if (videoElement.paused) {
-                                videoElement.play().then(() => {
-                                    console.log(`✅ Fallback: Video playback started for consumer ${consumer.id}`);
-                                    console.log('🎞️ Track settings:', consumer.track.getSettings?.());
-                                    console.log('🎞️ Track readyState:', consumer.track.readyState);
-                                    console.log('🎞️ MediaStream tracks:', stream.getTracks());
-                                    console.log('🎞️ Video element readyState:', videoElement.readyState);
-                                    console.log('🎞️ Video element paused:', videoElement.paused);
-
-                                }).catch((err) => {
-                                    console.error('Fallback error during video playback:', err);
-                                });
+                                videoElement
+                                    .play()
+                                    .then(() => {
+                                        console.log(
+                                            `✅ Fallback: Video playback started for consumer ${consumer.id}`
+                                        );
+                                        console.log(
+                                            '🎞️ Track settings:',
+                                            consumer.track.getSettings?.()
+                                        );
+                                        console.log(
+                                            '🎞️ Track readyState:',
+                                            consumer.track.readyState
+                                        );
+                                        console.log(
+                                            '🎞️ MediaStream tracks:',
+                                            stream.getTracks()
+                                        );
+                                        console.log(
+                                            '🎞️ Video element readyState:',
+                                            videoElement.readyState
+                                        );
+                                        console.log(
+                                            '🎞️ Video element paused:',
+                                            videoElement.paused
+                                        );
+                                    })
+                                    .catch((err) => {
+                                        console.error(
+                                            'Fallback error during video playback:',
+                                            err
+                                        );
+                                    });
                             }
                         }, 1000);
                     });
                 }
 
-                // Resume consumer on server
-                console.log(`▶️ Resuming consumer ${consumer.id}`);
-                await this.request('resume', { consumerId: consumer.id });
-
                 // Optionally, start logging consumer stats (unchanged code)
+                let stoppedTimer = false;
+                let timeBeforeFirstFrame = 0;
                 setInterval(async () => {
                     try {
                         const stats = await consumer.getStats();
-                        
+
                         stats.forEach((stat: any) => {
-                            if (stat.type === 'inbound-rtp' && stat.kind === 'video') {
-                                console.log(`📈 Packets received:`, stat.packetsReceived);
-                                console.log(`📈 Frames decoded:`, stat.framesDecoded);
+                            if (stat.framesDecoded > 0 && !stoppedTimer) {
+                                timeBeforeFirstFrame = Date.now() - startTime;
+                                stoppedTimer = true;
+                                console.warn(
+                                    `⏱️ Time before first frame received: ${timeBeforeFirstFrame}ms`
+                                );
+                            }
+                            if (
+                                stat.type === 'inbound-rtp' &&
+                                stat.kind === 'video'
+                            ) {
+                                console.log(
+                                    `📈 Packets received:`,
+                                    stat.packetsReceived
+                                );
+                                console.log(
+                                    `📈 Frames decoded:`,
+                                    stat.framesDecoded
+                                );
                                 console.log(
                                     `🔍 Consumer ${consumer.id} inbound RTP: packetsReceived=${stat.packetsReceived}, bytesReceived=${stat.bytesReceived}, framesDecoded=${stat.framesDecoded}`
                                 );
                             }
                         });
                     } catch (err) {
-                        console.error(`Error getting stats for consumer ${consumer.id}`, err);
+                        console.error(
+                            `Error getting stats for consumer ${consumer.id}`,
+                            err
+                        );
                     }
                 }, 1000);
             }

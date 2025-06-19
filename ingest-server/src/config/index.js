@@ -94,6 +94,16 @@ export default {
                     channels: 2,
                 },
             ],
+            iceServers: [
+                {
+                    urls: "stun:stun.l.google.com:19302",
+                },
+                {
+                    urls: "turn:turn.example.com:3478",
+                    username: "user",
+                    credential: "pass",
+                },
+            ],
         },
     },
 };
