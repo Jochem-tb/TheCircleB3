@@ -4,11 +4,15 @@ const errorHandler = require('./src/utils/errorHandler.js');
 const logger = require('./src/utils/logger.js');
 const authRoutes = require('./src/routes/auth.routes.js');
 const cors = require('cors');
-const app = express();
 app.use(express.json());
 app.use(cors({
   origin: 'http://localhost:4200', 
 }));
+import express from 'express';
+import { verifySignature } from './utils/crypto.js';
+
+const app = express();
+app.use(express.json());
 
 app.post('/verify', (req, res) => {
     const { name, publicKey, signature } = req.body || {};
@@ -47,3 +51,6 @@ if (require.main === module) {
 }
 
 module.exports = app;
+app.listen(3000, () => {
+    console.log('Auth server running on http://localhost:3000');
+});

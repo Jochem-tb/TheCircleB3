@@ -1,3 +1,2 @@
-// Binnen Docker verwijst 'localhost' naar de container zelf.
-// Dus je moet de service name gebruiken: 'truYou-auth'
-export const AUTH_SERVER_URL = 'http://truyou-auth:3000';
+// This file contains all the URLs and constants used in the chat server.
+export const AUTH_SERVER_URL = 'http://localhost:3000';
