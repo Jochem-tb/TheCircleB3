@@ -22,6 +22,11 @@
       [(ngModel)]="userName"
       placeholder="Username"
     />
+     <input
+      type="file"
+      (change)="onFileSelected($event)"
+      accept=".pem"
+    />
     <button (click)="onSubmit()">Enter</button>
   </div>
 </div>

@@ -1,8 +1,14 @@
-import express from 'express';
-import { verifySignature } from './utils/crypto.js';
-
+const express = require('express')
+const verifySignature = require('./src/utils/verifySignature.js');
+const errorHandler = require('./src/utils/errorHandler.js');
+const logger = require('./src/utils/logger.js');
+const authRoutes = require('./src/routes/auth.routes.js');
+const cors = require('cors');
 const app = express();
 app.use(express.json());
+app.use(cors({
+  origin: 'http://localhost:4200', 
+}));
 
 app.post('/verify', (req, res) => {
     const { name, publicKey, signature } = req.body || {};
@@ -22,6 +28,22 @@ app.post('/verify', (req, res) => {
     }
 });
 
-app.listen(3000, () => {
-    console.log('Auth server running on http://localhost:3000');
+app.use('/auth', authRoutes);
+
+app.get('/', (req, res) => {
+  res.send('Auth server is up and running!');
 });
+
+
+app.use(errorHandler);
+
+const port = process.env.PORT || 3000;
+
+// Start alleen de server als het direct wordt uitgevoerd
+if (require.main === module) {
+    app.listen(port, () => {
+        logger.info(`Auth server running on port ${port}`);
+    });
+}
+
+module.exports = app;

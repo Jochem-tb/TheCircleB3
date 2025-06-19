@@ -7,36 +7,41 @@ services:
     env_file:
         - .env
 
-  # frontend-viewer-dev:
-  #   build:
-  #     context: ./frontend
-  #     dockerfile: Dockerfile.dev
-  #   ports:
-  #     - "4200:4200"
-  #   volumes:
-  #     - ./frontend:/app
-  #     - /app/node_modules
-  #   command: npm run start -- --project viewer --host 0.0.0.0 --poll=1000
-  #   environment:
-  #     - CHOKIDAR_USEPOLLING=true
+    frontend-viewer-dev:
+        build:
+            context: ./frontend
+            dockerfile: Dockerfile.dev
+        ports:
+            - "4200:4200"
+        volumes:
+            - ./frontend:/app
+            - /app/node_modules
+        command: npm run start -- --project viewer --host 0.0.0.0 --poll=1000
+        environment:
+            - CHOKIDAR_USEPOLLING=true
 
-  frontend-viewer:
-    build:
-      context: ./frontend
-      args:
-        APP_NAME: viewer
-    ports:
-      - "4200:80"
-    restart: always
-
-  frontend-streamer:
-    build:
-      context: ./frontend
-      args:
-        APP_NAME: streamer
-    ports:
-      - "4300:80"
-    restart: always
+    # DOESNT WORK
+    frontend-viewer:
+        build:
+            context: ./frontend
+            args:
+                APP_NAME: viewer
+        ports:
+            - "4200:80"
+        # depends_on:
+        #   - chat-server
+        restart: always
+    # DOESNT WORK
+    frontend-streamer:
+        build:
+            context: ./frontend
+            args:
+                APP_NAME: streamer
+        ports:
+            - "4300:80"
+        # depends_on:
+        #   - truYou-auth
+        restart: always
 
   ingest-server:
     build: ./ingest-server
