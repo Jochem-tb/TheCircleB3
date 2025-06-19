@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { HttpClientModule } from '@angular/common/http';
-
+import { CookieService } from '../../pages/service/cookie.service';
 
 @Component({
   selector: 'app-header',
@@ -19,7 +19,8 @@ export class HeaderComponent {
   privateKey = '';
   constructor(
     private router: Router,
-    private http: HttpClient
+    private http: HttpClient,
+    private cookieService: CookieService
   ) { }
 
 
@@ -72,8 +73,9 @@ export class HeaderComponent {
       console.log('Authentication response:', authResp);
 
       if (authResp && authResp.authenticated) {
+        this.cookieService.setAuthCookie();
+
         alert('Authentication successful!');
-        this.router.navigate(['/']);
       }
 
       // Clear and close popup
@@ -81,18 +83,9 @@ export class HeaderComponent {
       this.showPopup = false;
     } catch (err) {
       console.error('Error during authentication:', err);
-
-      if (err instanceof HttpErrorResponse) {
-        console.error('HTTP status:', err.status);
-        console.error('Error message:', err.message);
-        console.error('Error body:', err.error);
-      } else if (err instanceof Error) {
-        console.error('General error:', err.message);
-      } else {
-        console.error('Unknown error:', err);
-      }
-
       alert('Authentication failed. See console for details.');
+      window.location.reload();
+
     }
   }
 

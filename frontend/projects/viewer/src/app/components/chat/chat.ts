@@ -3,6 +3,7 @@ import { ChatMessage, ChatService } from '../../services/chat.service'
 import { generateDevIdentity } from '../../utils/dev.auth'
 import { FormsModule } from '@angular/forms'
 import { CommonModule } from '@angular/common'
+import { CookieService } from '../../pages/service/cookie.service'
 
 @Component({
   selector: 'app-chat',
@@ -16,7 +17,10 @@ export class ChatComponent implements OnInit, OnDestroy {
   newMessage: string = ''
   authenticated: boolean = false
 
-  constructor(private chatService: ChatService) { }
+  constructor(
+    private chatService: ChatService,
+    private cookieService: CookieService
+  ) { }
 
   async ngOnInit() {
     // create random username
@@ -35,14 +39,10 @@ export class ChatComponent implements OnInit, OnDestroy {
       }, 0)
     })
 
-    // Generate identity and authenticate (generate is for testing)
-    try {
-      const { publicKey, signature } = await generateDevIdentity(name)
-      this.chatService.authenticate(name, publicKey, signature)
-      this.authenticated = true
-    } catch (err) {
-      console.error('Failed to generate identity:', err)
-    }
+    // Authenticate user 
+    this.cookieService.authenticated$.subscribe(auth => {
+      this.authenticated = auth;
+    });
   }
 
   sendMessage() {
