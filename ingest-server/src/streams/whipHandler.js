@@ -1,3 +1,4 @@
+// File: ingest-server/src/streams/whipHandler.js
 import express from "express";
 import sdpTransform from "sdp-transform";
 import streamManager from "./StreamManager.js";
@@ -13,11 +14,27 @@ router.post("/:streamId", async (req, res) => {
     const { streamId } = req.params;
     const sdpOffer = req.body;
 
+    console.log(`[WHIP] Received SDP offer for streamId ${streamId}`);
+    console.log(`[WHIP] SDP Offer:\n${sdpOffer}`);
+
     try {
         // STEP 1: Parse SDP offer
         console.log(`[WHIP] Received SDP offer for streamId ${streamId}`);
         const parsed = sdpTransform.parse(sdpOffer);
+        console.log(`[WHIP] Parsed SDP Offer:\n`, JSON.stringify(parsed, null, 2));
         const media0 = parsed.media[0];
+        if (media0) {
+            console.log(
+                `[WHIP] Media 0: type=${media0.type}, mid=${media0.mid}, direction=${media0.direction}`
+            );
+            console.log(
+                `[WHIP] Media 0 RTP:`, media0.rtp.map(
+                    (r) => `${r.payload} ${r.codec} ${r.rate}`
+                ).join(", ")
+            );
+        } else {
+            console.warn(`[WHIP] No media found in SDP offer for streamId ${streamId}`);
+        }
 
         // Extract ICE and DTLS params from SDP offer (handle fallback)
         console.log(`[WHIP] Parsing SDP offer for streamId ${streamId}`);
@@ -37,7 +54,10 @@ router.post("/:streamId", async (req, res) => {
         if (!streamManager.hasStream(streamId)) {
             await streamManager.createStream(streamId);
 
-            const transport = await createIngestTransport(streamId);
+            if (!getIngestTransport(streamId)) {
+                await createIngestTransport(streamId);
+            }
+            const transport = getIngestTransport(streamId);
 
             transport.on("dtlsstatechange", (state) => {
                 if (state === "closed") streamManager.removeStream(streamId);
@@ -60,6 +80,15 @@ router.post("/:streamId", async (req, res) => {
             `[WHIP] Stream ${streamId} exists, using existing transport`
         );
         const transport = getIngestTransport(streamId);
+
+
+        const router = getRouter(streamId);
+        if (router) {
+            console.log(`[WHIP] Router RTP capabilities for streamId ${streamId}:`);
+            console.log(JSON.stringify(router.rtpCapabilities, null, 2));
+        } else {
+            console.warn(`[WHIP] No router found for streamId ${streamId}`);
+        }
 
         // STEP 3: Connect transport with DTLS params from offer
         console.log("Step 3: Connecting transport for streamId");
@@ -114,37 +143,60 @@ router.post("/:streamId", async (req, res) => {
             // 4c) Pick only VP8 for video, all for audio
             const codecs = [];
             for (const [pt, codec] of payloadTypeToCodec.entries()) {
-                if (m.type === "video") {
-                    if (codec.mimeType.toLowerCase() === "video/vp8") {
-                        codecs.push(codec);
-                    } else {
-                        console.log(
-                            `[WHIP] skipping ${codec.mimeType} (payload ${pt})`
-                        );
-                    }
-                } else {
-                    // audio: include all (or filter to 'audio/opus' if you prefer)
+                if (m.type === "video" && codec.mimeType.toLowerCase() === "video/vp8") {
                     codecs.push(codec);
+                } else {
+                    console.log(`[WHIP] Skipping unsupported codec: ${codec.mimeType}`);
                 }
             }
 
             console.log(`[WHIP] Final codecs for ${m.type}:`, codecs);
 
-            // 4d) Produce on the transport
+            console.log(`[WHIP] Will produce with SSRC:`, m.ssrc);
+            if (m.ssrc && m.ssrc < 1) {
+                console.warn(`[WHIP] SSRC ${m.ssrc} is invalid, generating random SSRC`);
+                m.ssrc = Math.floor(Math.random() * 1e6);
+            }
+
+            // Zoek de SSRC-line met cname attribuut
+            const ssrcLine = m.ssrcs?.find((s) => s.attribute === 'cname');
+
+            const ssrcFromLine = ssrcLine?.id ? Number(ssrcLine.id) : undefined;
+            const finalSsrc = m.ssrc || ssrcFromLine || Math.floor(Math.random() * 1e6);
+
             const producer = await transport.produce({
-                kind: m.type,
-                rtpParameters: {
-                    codecs,
-                    encodings: [
-                        { ssrc: m.ssrc || Math.floor(Math.random() * 1e6) },
-                    ],
-                    rtcp: {
-                        cname: `cname-${streamId}`,
-                        reducedSize: true,
-                        mux: true,
-                    },
+            kind: m.type,
+            rtpParameters: {
+                codecs,
+                encodings: [
+                { ssrc: finalSsrc }
+                ],
+                rtcp: {
+                cname: `cname-${streamId}`,
+                reducedSize: true,
+                mux: true,
                 },
+            },
             });
+
+            console.log("Poducer paused?", producer.paused);
+
+            console.log(`[WHIP] Producer created: ${producer.id}, kind=${producer.kind}`);
+            console.log(`[WHIP] Producer RTP parameters:`, producer.rtpParameters);
+
+            // Add periodic stats logging for the producer
+            setInterval(async () => {
+            const stats = await producer.getStats();
+                stats.forEach((report) => {
+                    console.log(`[WHIP] Producer stats: ssrc=${report.ssrc}, type=${report.type}, kind=${report.kind}, packetsSent=${report.packetsSent}, bytesSent=${report.bytesSent}`);
+                });
+            }, 2000);
+
+
+            console.log(`[WHIP] Using SSRC: ${m.ssrc}`);
+
+            const stats = await producer.getStats();
+            console.log(`[WHIP] Producer stats:`, stats);
 
             const stream = streamManager.getStream(streamId);
             if (!stream) {
@@ -155,7 +207,7 @@ router.post("/:streamId", async (req, res) => {
                 console.log(
                     `[WHIP] Registering producer ${producer.id} to stream ${streamId}`
                 );
-                stream.producers.set(producer.id, producer);
+                stream.setProducer(producer);
             }
         }
 
@@ -187,21 +239,14 @@ router.post("/:streamId", async (req, res) => {
         };
 
         parsed.media.forEach((m, i) => {
-            // We want to receive anything the browser sends (sendrecv or sendonly)
-            const clientSending =
-                m.direction === "sendrecv" || m.direction === "sendonly";
+            const clientSending = m.direction === "sendrecv" || m.direction === "sendonly";
 
-            // Build a list of payload IDs we actually want to answer (only VP8)
             const payloadsArray = m.rtp
-                .filter((r) =>
-                    m.type === "video" ? r.codec.toLowerCase() === "vp8" : true
-                )
+                .filter((r) => m.type === "video" && r.codec.toLowerCase() === "vp8")
                 .map((r) => String(r.payload));
 
-            // Join into a space-separated string for the m= line
             const payloads = payloadsArray.join(" ");
 
-            // Base media answer object
             const mediaAnswer = {
                 type: m.type,
                 port: clientSending ? 9 : 0,
@@ -214,18 +259,9 @@ router.post("/:streamId", async (req, res) => {
             if (clientSending) {
                 Object.assign(mediaAnswer, {
                     connection: { version: 4, ip: "127.0.0.1" },
-                    // Only include the rtp entries matching our payloadsArray
-                    rtp: m.rtp.filter((r) =>
-                        payloadsArray.includes(String(r.payload))
-                    ),
-                    // Filter fmtp to only VP8
-                    fmtp: (m.fmtp || []).filter((f) =>
-                        payloadsArray.includes(String(f.payload))
-                    ),
-                    // Filter rtcp-fb to only VP8
-                    rtcpFb: (m.rtcpFb || []).filter((fb) =>
-                        payloadsArray.includes(String(fb.payload))
-                    ),
+                    rtp: m.rtp.filter((r) => payloadsArray.includes(String(r.payload))),
+                    fmtp: (m.fmtp || []).filter((f) => payloadsArray.includes(String(f.payload))),
+                    rtcpFb: (m.rtcpFb || []).filter((fb) => payloadsArray.includes(String(fb.payload))),
                     setup: "active",
                     iceUfrag: ice.usernameFragment,
                     icePwd: ice.password,
@@ -293,7 +329,7 @@ router.post("/:streamId", async (req, res) => {
             return;
         }
 
-        stats.forEach(stat => {
+        stats.forEach((stat) => {
             if (stat.bytesReceived === undefined) return;
 
             // Use stat.id (or stat.kind) as the key
@@ -302,18 +338,20 @@ router.post("/:streamId", async (req, res) => {
 
             if (prev) {
                 const deltaBytes = stat.bytesReceived - prev.bytes;
-                const deltaSecs  = (now - prev.timestamp) / 1000;
+                const deltaSecs = (now - prev.timestamp) / 1000;
                 // bytes → bits → kilobits
                 const kbps = ((deltaBytes * 8) / deltaSecs / 1000).toFixed(1);
                 console.debug(
-                    `[WHIP] ${new Date().toISOString()} ${streamId} ${stat.kind} kbps=${kbps}`
+                    `[WHIP] ${new Date().toISOString()} ${streamId} ${
+                        stat.kind
+                    } kbps=${kbps}`
                 );
             }
 
             // Store current for next round
             lastStats.set(key, {
                 bytes: stat.bytesReceived,
-                timestamp: now
+                timestamp: now,
             });
         });
     }
@@ -325,12 +363,13 @@ router.post("/:streamId", async (req, res) => {
             clearInterval(statsInterval);
             return;
         }
-        logRate(streamId).catch(err => {
+        logRate(streamId).catch((err) => {
             console.error(`[WHIP] stats error for ${streamId}:`, err);
             clearInterval(statsInterval);
         });
     }, 10000);
 });
+
 
 //Check if nessesary to have this endpoint
 // DELETE /whip/:streamId -- teardown the ingest and all producers/viewers

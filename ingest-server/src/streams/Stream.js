@@ -1,3 +1,4 @@
+// File: ingest-server/src/streams/Stream.js
 import { getRouter } from "../mediasoup/routerManager.js";
 
 export default class Stream {

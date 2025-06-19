@@ -1,215 +1,156 @@
-import { RouterOutlet } from '@angular/router';
-import { Injectable, NgZone } from '@angular/core';
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
-import { MediasoupService } from './MediasoupService';
 
 @Component({
-    selector: 'app-root',
-    imports: [RouterOutlet],
-    templateUrl: './app.component.html',
-    styleUrl: './app.component.css',
+  selector: 'app-root',
+  templateUrl: './app.component.html',
+  styleUrls: ['./app.component.css'],
 })
 export class AppComponent implements OnInit {
-    title = 'streamer';
+  @ViewChild('videoPreview', { static: true })
+  videoPreview!: ElementRef<HTMLVideoElement>;
 
-    constructor(private mediasoupService: MediasoupService) {}
-    @ViewChild('videoPreview', { static: true })
-    videoPreview!: ElementRef<HTMLVideoElement>;
+  private pc!: RTCPeerConnection;
+  private mediaStream!: MediaStream;
 
-    ngOnInit() {
-        // Any initialization logic can go here
-    }
+  constructor() {}
 
-    loadStream() {
-        console.log('🔄 Starting WHIP stream...');
-        const videoElem = document.getElementById(
-            'streamingDiv'
-        ) as HTMLVideoElement | null;
-        if (!videoElem) {
-            console.error('❌ Could not find video element with ID #videoElem');
-            return;
+  ngOnInit() {}
+
+  async startWhip() {
+    const streamId = 'test-stream';
+    const whipUrl = `http://localhost:8090/whip/${streamId}`;
+
+    console.log('🚀 Starting WHIP stream for streamId:', streamId);
+
+    this.pc = new RTCPeerConnection({
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+    });
+
+    // ICE and connection event logging
+    this.pc.oniceconnectionstatechange = () => {
+      console.log('❄️ ICE state:', this.pc.iceConnectionState);
+    };
+    this.pc.onconnectionstatechange = () => {
+      console.log('🔌 Connection state:', this.pc.connectionState);
+    };
+    this.pc.onicecandidate = (e) => {
+      console.log('🧊 ICE candidate:', e.candidate);
+    };
+
+    // 🎥 Get local camera stream (only video for now)
+    console.log('🎥 Requesting local media stream...');
+    this.mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
+    console.log('✅ Got local media stream:', this.mediaStream);
+
+    // Show local preview
+    const videoEl = this.videoPreview.nativeElement;
+    videoEl.srcObject = this.mediaStream;
+
+    // Add tracks to peer connection
+    this.mediaStream.getTracks().forEach((track) => {
+      console.log(`➕ Adding ${track.kind} track`);
+      this.pc.addTrack(track, this.mediaStream);
+    });
+
+    console.log('📜 Creating SDP offer...');
+    const offer = await this.pc.createOffer();
+    await this.pc.setLocalDescription(offer);
+
+    // 🧊 Wait for ICE gathering to complete
+    await new Promise<void>((resolve) => {
+      if (this.pc.iceGatheringState === 'complete') return resolve();
+      this.pc.addEventListener('icegatheringstatechange', () => {
+        if (this.pc.iceGatheringState === 'complete') resolve();
+      });
+    });
+
+    const preferVP8 = (sdp: string): string => {
+      const lines = sdp.split('\n');
+      const vp8Payloads = new Set<string>();
+
+      // Collect payloads for VP8
+      for (const line of lines) {
+        if (line.startsWith('a=rtpmap') && line.toLowerCase().includes('vp8/90000')) {
+          const match = line.match(/a=rtpmap:(\d+)/);
+          if (match) vp8Payloads.add(match[1]);
         }
-        this.mediasoupService
-            .initStream('test-stream', videoElem)
-            .catch((err) => {
-                console.error('❌ Error starting WHIP stream:', err);
-            });
-    }
+      }
 
-    preferCodec(sdp: string, codec: string = 'VP8'): string {
-        const lines = sdp.split('\n');
-        const mLineIdx = lines.findIndex((l) => l.startsWith('m=video'));
-        if (mLineIdx === -1) return sdp;
+      const mVideoIndex = lines.findIndex((l) => l.startsWith('m=video'));
+      if (mVideoIndex === -1 || vp8Payloads.size === 0) return sdp;
 
-        // Collect payload types for the target codec (e.g. VP8)
-        const payloads = lines
-            .filter(
-                (l) =>
-                    l.startsWith('a=rtpmap') &&
-                    l.toUpperCase().includes(`${codec.toUpperCase()}/90000`)
-            )
-            .map((l) => {
-                const m = l.match(/a=rtpmap:(\d+)\s/);
-                return m ? m[1] : null;
-            })
-            .filter((p) => p !== null) as string[];
+      // Replace m=video line to only include VP8 payloads
+      const parts = lines[mVideoIndex].split(' ');
+      const newMLine = [...parts.slice(0, 3), ...[...vp8Payloads]].join(' ');
+      lines[mVideoIndex] = newMLine;
 
-        if (!payloads.length) {
-            console.warn(`No payload for codec ${codec} found in SDP`);
-            return sdp;
+      // Filter out all non-VP8-related lines
+      const filteredLines = lines.filter((line) => {
+        if (!line.startsWith('a=')) return true; // keep non-a lines
+        if (line.startsWith('a=rtpmap') || line.startsWith('a=fmtp') || line.startsWith('a=rtcp-fb')) {
+          return [...vp8Payloads].some((pt) => line.includes(`:${pt}`));
         }
+        return true;
+      });
 
-        // Rewrite the m=video line to only include VP8 payloads
-        const parts = lines[mLineIdx].split(' ');
-        lines[mLineIdx] = [...parts.slice(0, 3), ...payloads].join(' ');
-        return lines.join('\n');
+      return filteredLines.join('\n');
+    };
+
+
+    const patchedSdp = preferVP8(this.pc.localDescription!.sdp!);
+    console.log('🛠️ Patched SDP with preferred codec (VP8)');
+
+    // Strip non-TCP candidates (for testing purposes)
+    const tcpOnlySdp = patchedSdp
+      .split('\n')
+      .filter((line) => !line.startsWith('a=candidate') || line.includes('tcp'))
+      .join('\n');
+
+    // POST to WHIP endpoint
+    console.log('📤 Sending SDP offer to WHIP server...');
+    const res = await fetch(whipUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/sdp' },
+      body: tcpOnlySdp,
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      console.error('❌ WHIP rejected offer:', err);
+      return;
     }
 
-    async startWhip() {
-        const streamId = 'test-stream';
-        const whipUrl = `http://localhost:8090/whip/${streamId}`;
+    const answerSdp = await res.text();
+    console.log('📥 Received answer from WHIP:\n', answerSdp);
 
-        const pc = new RTCPeerConnection({
-            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
-        });
+    try {
+      await this.pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
+      console.log('✅ Remote description set.');
+    } catch (e) {
+      console.error('❌ Error setting remote description:', e);
+      this.pc.close();
+      return;
+    }
 
-        // Log state changes
-        pc.addEventListener('iceconnectionstatechange', () => {
-            console.log('❄️ ICE connection state:', pc.iceConnectionState);
-        });
-
-        pc.addEventListener('connectionstatechange', () => {
-            console.log('🔌 Peer connection state:', pc.connectionState);
-        });
-
-        // Set up repeated stats logging
-        const statsInterval = setInterval(() => {
-            pc.getStats().then((stats) => {
-                stats.forEach((report) => {
-                    if (
-                        report.type === 'candidate-pair' &&
-                        report.state === 'succeeded'
-                    ) {
-                        console.log('✅ ICE Candidate Pair Selected:', report);
-                    }
-                    if (report.type === 'outbound-rtp') {
-                        console.log(
-                            `📈 Outbound stats (${report.mediaType}):`,
-                            report
-                        );
-                    }
-                });
-            });
-        }, 3000);
-
-        pc.ontrack = (event) => {
-            console.log('📥 Received track:', event.track.kind);
-            const track = event.track;
-            track.onunmute = () => {
-                console.log('📡 Track is unmuted and receiving data');
-                // Optional: start recording or forwarding media
-            };
-        };
-
-        // Get user media
-        const media = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: false,
-        });
-
-        console.log('🎥 Got media stream:', media);
-
-        // Show preview
-        const videoEl = document.querySelector('video')!;
-        videoEl.srcObject = media;
-
-        // Add media tracks to connection
-        media.getTracks().forEach((track) => {
-            console.log(`🎙️ Adding track: ${track.kind}`);
-            pc.addTrack(track, media);
-        });
-
-        // Create offer
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-
-        let patchedSdp = this.preferCodec(pc.localDescription!.sdp!, 'VP8');
-
-        console.log('📶 Signaling state after offer:', pc.signalingState);
-
-        // Wait for ICE gathering to complete
-        await new Promise<void>((resolve) => {
-            if (pc.iceGatheringState === 'complete') {
-                resolve();
-            } else {
-                pc.addEventListener('icegatheringstatechange', () => {
-                    console.log(
-                        '🌐 ICE gathering state:',
-                        pc.iceGatheringState
-                    );
-                    if (pc.iceGatheringState === 'complete') {
-                        resolve();
-                    }
-                });
-            }
-        });
-
-        // Patch SDP to keep only TCP candidates
-        const localSdp = pc.localDescription!.sdp!;
-        //use the patchedSdp instead of localSdp
-
-        const tcpOnlySdp = patchedSdp
-            .split('\n')
-            .filter(
-                (line) =>
-                    !line.startsWith('a=candidate') || line.includes('tcp')
-            )
-            .join('\n');
-
-        console.log('📡 Sending TCP-only SDP offer');
-        console.log('patchedSdp:', patchedSdp);
-
-        // Send offer to WHIP server
-        const response = await fetch(whipUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/sdp' },
-            body: tcpOnlySdp,
-        });
-
-        if (!response.ok) {
-            console.error(
-                '❌ WHIP server rejected offer:',
-                await response.text()
+    // Log stats every 2s
+    setInterval(() => {
+      this.pc.getStats().then((stats) => {
+        stats.forEach((report) => {
+          if (report.type === 'outbound-rtp' && report.kind === 'video') {
+            console.log(
+              `📈 Outbound video: ssrc=${report.ssrc}, framesSent=${report.framesSent}, bytesSent=${report.bytesSent}`
             );
-            return;
-        }
-
-        const answerSdp = await response.text();
-        console.log('📡 Received SDP answer from server');
-        console.log('AnswerSdp: ' + answerSdp);
-
-        try {
-            await pc.setRemoteDescription(
-                new RTCSessionDescription({
-                    type: 'answer',
-                    sdp: answerSdp,
-                })
-            );
-        } catch (e) {
-            console.error('❌ Failed to set remote description:', e);
-            clearInterval(statsInterval);
-            pc.close();
-            return;
-        }
-
-        console.log(
-            '📡 Connection setup complete! Streaming should begin now.'
-        );
-
-        // Clean up on unload
-        window.addEventListener('beforeunload', () => {
-            clearInterval(statsInterval);
-            pc.close();
+          }
         });
-    }
+      });
+    }, 2000);
+
+    console.log('🚀 WHIP streaming started!');
+  }
+
+  stopStream() {
+    this.mediaStream?.getTracks().forEach((track) => track.stop());
+    this.pc?.close();
+    console.log('🛑 Stream stopped');
+  }
 }

@@ -1,3 +1,4 @@
+// File: src/config/index.js
 import os from "os";
 
 const getLocalIp = () => {
@@ -35,6 +36,8 @@ export default {
                         { type: "ccm", parameter: "fir" },
                         { type: "goog-remb" },
                     ],
+                    parameters: {},
+                    preferredPayloadType: 96,
                 },
 
                 // Support VP9
