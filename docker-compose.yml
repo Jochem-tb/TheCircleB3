@@ -1,101 +1,97 @@
 services:
-    chat-server:
-        build: ./chat-server
-        ports:
-            - "3000:3000"
-        restart: always
+  chat-server:
+    build: ./chat-server
+    ports:
+      - "8080:8080"
+    restart: always
+    env_file:
+        - .env
 
-    frontend-viewer-dev:
-        build:
-            context: ./frontend
-            dockerfile: Dockerfile.dev
-        ports:
-            - "4200:4200"
-        volumes:
-            - ./frontend:/app
-            - /app/node_modules
-        command: npm run start -- --project viewer --host 0.0.0.0 --poll=1000
-        environment:
-            - CHOKIDAR_USEPOLLING=true
+  # frontend-viewer-dev:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile.dev
+  #   ports:
+  #     - "4200:4200"
+  #   volumes:
+  #     - ./frontend:/app
+  #     - /app/node_modules
+  #   command: npm run start -- --project viewer --host 0.0.0.0 --poll=1000
+  #   environment:
+  #     - CHOKIDAR_USEPOLLING=true
 
-    # DOESNT WORK
-    frontend-viewer:
-        build:
-            context: ./frontend
-            args:
-                APP_NAME: viewer
-        ports:
-            - "4200:80"
-        # depends_on:
-        #   - chat-server
-        restart: always
-    # DOESNT WORK
-    frontend-streamer:
-        build:
-            context: ./frontend
-            args:
-                APP_NAME: streamer
-        ports:
-            - "4300:80"
-        # depends_on:
-        #   - truYou-auth
-        restart: always
+  frontend-viewer:
+    build:
+      context: ./frontend
+      args:
+        APP_NAME: viewer
+    ports:
+      - "4200:80"
+    restart: always
 
-    ingest-server:
-        build: ./ingest-server
-        ports:
-            - "4000:4000" # Adjust depending on how ingest works
-        restart: always
-        volumes:
-            - ./ingest-server/recordings:/app/recordings
-        # depends_on:
-        #   - streaming-server
+  frontend-streamer:
+    build:
+      context: ./frontend
+      args:
+        APP_NAME: streamer
+    ports:
+      - "4300:80"
+    restart: always
 
-    streaming-server:
-        build: ./streaming-server
-        ports:
-            - "1935:1935" # RTMP ingest
-            - "8080:80" # HLS stream
-        volumes:
-            - streaming-hls:/var/www/hls
-            - streaming-recordings:/var/www/recordings
-        restart: always
+  ingest-server:
+    build: ./ingest-server
+    ports:
+      - "4000:4000"
+    restart: always
+    volumes:
+      - ./ingest-server/recordings:/app/recordings
 
-    streaming-api:
-        build: ./streaming-api
-        volumes:
-            - streaming-hls:/app/hls # Mount the same HLS folder if needed
-            - streaming-recordings:/app/recordings
-        ports:
-            - "5000:4000"
-        depends_on:
-            - streaming-server
+  streaming-server:
+    build: ./streaming-server
+    ports:
+      - "1935:1935"
+      - "8081:80" # aangepast om niet te botsen met chat-server
+    volumes:
+      - streaming-hls:/var/www/hls
+      - streaming-recordings:/var/www/recordings
+    restart: always
 
-    # truYou-auth:
-    #   build: ./truYou-auth
-    #   ports:
-    #     - "5000:5000"
-    #   restart: always
-    #   environment:
-    #     MONGO_URL: mongodb://mongo:27017/truyou
+  streaming-api:
+    build: ./streaming-api
+    ports:
+      - "5000:4000"
+    volumes:
+      - streaming-hls:/app/hls
+      - streaming-recordings:/app/recordings
+    depends_on:
+      - streaming-server
 
-    logging-service:
-        build: ./logging-service
-        ports:
-            - "5200:5200"
-        restart: always
-        environment:
-            MONGO_URI: ${MONGO_URI} # Adjust log level as needed
-            PORT: "5200"
+  logging-service:
+    build: ./logging-service
+    ports:
+      - "5200:5200"
+    restart: always
+    environment:
+      MONGO_URI: ${MONGO_URI}
+      PORT: "5200"
+    env_file:
+      - .env
 
-    mongo:
-        image: mongo
-        ports:
-        - "27017:27017"
-        restart: always
-        volumes:
-        - mongo-data:/data/db
+  mongo:
+    image: mongo
+    ports:
+      - "27017:27017"
+    restart: always
+    volumes:
+      - mongo-data:/data/db
+
+  truyou-auth:
+    build: ./truyou-auth
+    ports:
+      - "3000:3000"
+    restart: always
+
 volumes:
-    mongo-data:
-    streaming-hls:
-    streaming-recordings:
+  mongo-data:
+  streaming-hls:
+  streaming-recordings:

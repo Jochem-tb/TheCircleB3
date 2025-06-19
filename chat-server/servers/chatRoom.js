@@ -1,5 +1,7 @@
 import fetch from 'node-fetch'; // This line is needed to import fetch in Node.js
 import { AUTH_SERVER_URL } from '../config/config.js';
+import crypto from 'crypto';
+import axios from 'axios';
 
 class ChatRoom {
     constructor(userId) {
@@ -81,7 +83,7 @@ class ChatRoom {
             timestamp: new Date().toISOString()
         };
 
-        this.logChatEvent(chat).catch(err =>
+        this.logChatEvent(message).catch(err =>
             console.error("Logging failed:", err.message)
         );
 
