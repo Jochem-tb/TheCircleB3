@@ -1,4 +1,9 @@
-<h2>🎥 Now Watching: {{ streamerId }}</h2>
+<div class="content-grid">
+    <div class="following">
+        following
+    </div>
+
+    <div class="stream">
 
 <video
   #video
@@ -6,5 +11,17 @@
   playsinline
   muted
   controls
-  style="width: 100%; max-width: 800px; height: auto; border-radius: 12px; box-shadow: 0 0 10px black;"
+  style="width: 100%; max-width: 1800px; height: auto; border-radius: 12px; box-shadow: 0 0 10px black;"
 ></video>
+
+        <div class="streamer-info" style="grid-column: 2; grid-row: 2">
+            <h2>🎥 Now Watching ID: {{ streamerId }}</h2>
+            <p>Description</p>
+        </div>
+    </div>
+
+    <div class="chat">
+        <app-chat></app-chat>
+    </div>
+    
+</div>
