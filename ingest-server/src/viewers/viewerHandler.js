@@ -8,6 +8,7 @@ import {
 } from "../mediasoup/transportManager.js";
 import Viewer from "./Viewer.js";
 import { getRouter, displayRouters } from "../mediasoup/routerManager.js";
+import { logEvent } from "../logging/logger.js"; // <-- toegevoegd
 
 export default function registerViewerHandlers(httpServer) {
     const io = new Server(httpServer, { cors: { origin: "*" } });
@@ -56,6 +57,14 @@ export default function registerViewerHandlers(httpServer) {
                     streamManager.getStream(streamId).viewers.size
                 }`
             );
+
+            await logEvent({
+                event: "viewer_connected",
+                streamId,
+                userId: "unknown", // of haal van sessie/token
+                viewerId: socket.id,
+                details: { transportId: transport.id }
+            });            
 
             // Return transport parameters to client
             cb({
@@ -261,12 +270,20 @@ export default function registerViewerHandlers(httpServer) {
         });
 
         // 6️⃣ Handle disconnection
-        socket.on("disconnect", () => {
+        socket.on("disconnect", async () => {
             console.log(`Viewer disconnected: ${socket.id}`);
             for (const stream of streamManager.streams.values()) {
                 if (stream.viewers.has(socket.id)) {
                     stream.removeViewer(socket.id);
                     removeViewerTransport(socket.id);
+
+                    await logEvent({
+                        event: "viewer_disconnected",
+                        streamId: stream.id,
+                        userId: "unknown",
+                        viewerId: socket.id,
+                        details: {}
+                    });                    
                 }
             }
         });
