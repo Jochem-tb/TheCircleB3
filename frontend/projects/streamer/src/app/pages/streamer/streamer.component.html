@@ -1,0 +1,12 @@
+<div class="streamer-container">
+  <h2>Streamer: {{ streamerId }}</h2>
+
+  <video #video autoplay muted playsinline width="640" height="360" style="background: black;"></video>
+
+  <div class="stream-controls">
+    <button (click)="getMediaStream()">Get Media</button>
+    <button (click)="startStreaming()" [disabled]="!mediaStreamAvailable || isStreaming">Start Streaming</button>
+  </div>
+
+  <p *ngIf="isStreaming">You are now streaming!</p>
+</div>
