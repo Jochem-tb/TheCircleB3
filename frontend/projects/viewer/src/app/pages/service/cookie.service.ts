@@ -45,6 +45,13 @@ export class CookieService {
     }
   }
 
+  //deletes da cookie without needing to specify name
+  clearAuthCookie(): void {
+  document.cookie = 'authenticated=; Max-Age=0; path=/;';
+  this.authSubject.next(false);
+  console.log('Cleared authenticated cookie');
+}
+
   // Public method to check once
   checkAuthCookie(): boolean {
     return this.internalCheckAuthCookie();
@@ -53,6 +60,7 @@ export class CookieService {
   // Internal method used by both public API and poller
   private internalCheckAuthCookie(): boolean {
     const cookie = this.getCookie('authenticated');
+    console.log('Checking cookie in service:', cookie);
     if (!cookie) return false;
 
     try {
