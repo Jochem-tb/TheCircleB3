@@ -80,6 +80,7 @@ export class ChatService {
   sendMessage(messageText: string) {
     if (!this.authenticated) return;
     this.ws?.send(JSON.stringify({ messageText }));
+        console.log("message sending")
   }
 
   isAuthenticated(): boolean {

@@ -1,6 +1,4 @@
 const express = require('express')
-const cors = require('cors');
-
 const { verifySignature } = require('./src/utils/verifySignature.js');
 const errorHandler = require('./src/utils/errorHandler.js');
 const logger = require('./src/utils/logger.js');
