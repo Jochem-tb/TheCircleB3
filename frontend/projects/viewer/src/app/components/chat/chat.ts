@@ -1,9 +1,10 @@
-import { Component, OnDestroy, OnInit } from '@angular/core'
+import { Component, Input, OnDestroy, OnInit } from '@angular/core'
 import { ChatMessage, ChatService } from '../../services/chat.service'
 import { generateDevIdentity } from '../../utils/dev.auth'
 import { FormsModule } from '@angular/forms'
 import { CommonModule } from '@angular/common'
 import { CookieService } from '../../pages/service/cookie.service'
+
 
 @Component({
   selector: 'app-chat',
