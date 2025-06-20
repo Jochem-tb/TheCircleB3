@@ -19,6 +19,7 @@ export class ChatComponent implements OnInit, OnDestroy {
   messages: ChatMessage[] = [];
   newMessage: string = '';
   authenticated: boolean = false;
+  errorMessage: string | null = null;
 
   constructor(
     private chatService: ChatService,
@@ -33,6 +34,11 @@ export class ChatComponent implements OnInit, OnDestroy {
 
     // Connect to chat room using streamerId passed from parent
     this.chatService.connect(this.streamerId);
+    this.chatService.connectionError$.subscribe(error => {
+    this.errorMessage = error;
+  });
+
+    
 
     // Subscribe to messages
     this.chatService.messages$.subscribe(msg => {
