@@ -81,6 +81,10 @@ class ChatRoom {
             timestamp: new Date().toISOString()
         };
 
+        this.logChatEvent(chat).catch(err =>
+            console.error("Logging failed:", err.message)
+        );
+
         this.broadcast(JSON.stringify(message));
     }
 
@@ -93,6 +97,34 @@ class ChatRoom {
             }
         }
     }
+
+    async logChatEvent({ sender, messageText, timestamp }) {
+        const event = {
+        eventType: "message_sent",
+        userId:    sender,               // TruYou‐ID of user‐naam
+        sessionId: this.userId,          // hier gebruik je de ChatRoom.userId als sessie‐ID
+        timestamp,
+        metadata:  { messageText }
+        };
+
+        const body = JSON.stringify(event);
+        const ts   = new Date().toISOString();
+        const secret = process.env.HMAC_SECRET;
+        const payload = ts + body;
+        const signature = crypto
+            .createHmac("sha256", secret)
+            .update(payload)
+            .digest("hex");
+
+        await axios.post(process.env.LOGGING_URL, event, {
+            headers: {
+                "Content-Type": "application/json",
+                "X-Timestamp":   ts,
+                "X-Signature":   signature
+            },
+            timeout: 2000
+        });
+    }    
 
     // Verify the user's signature with the auth server.
     async verifyWithAuthServer(name, publicKey, signature) {
