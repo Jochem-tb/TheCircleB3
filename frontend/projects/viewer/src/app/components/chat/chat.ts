@@ -8,14 +8,16 @@ import { CookieService } from '../../pages/service/cookie.service'
 @Component({
   selector: 'app-chat',
   templateUrl: './chat.html',
-  styleUrl: './chat.css',
+  styleUrls: ['./chat.css'],
   imports: [CommonModule, FormsModule],
   standalone: true
 })
 export class ChatComponent implements OnInit, OnDestroy {
-  messages: ChatMessage[] = []
-  newMessage: string = ''
-  authenticated: boolean = false
+  @Input() streamerId!: string;
+
+  messages: ChatMessage[] = [];
+  newMessage: string = '';
+  authenticated: boolean = false;
 
   constructor(
     private chatService: ChatService,
@@ -23,21 +25,22 @@ export class ChatComponent implements OnInit, OnDestroy {
   ) { }
 
   async ngOnInit() {
-    // create random username
-    const name = `User-${Math.floor(Math.random() * 10000)}`;
-    // const streamerId = 'streamer123'
+    if (!this.streamerId) {
+      console.error('streamerId input is required');
+      return;
+    }
 
-    // Connect to chat room
-    this.chatService.connect(name)
+    // Connect to chat room using streamerId passed from parent
+    this.chatService.connect(this.streamerId);
 
     // Subscribe to messages
     this.chatService.messages$.subscribe(msg => {
-      this.messages.push(msg)
+      this.messages.push(msg);
       setTimeout(() => {
-        const el = document.getElementById('chat-log')
-        if (el) el.scrollTop = el.scrollHeight
-      }, 0)
-    })
+        const el = document.getElementById('chat-log');
+        if (el) el.scrollTop = el.scrollHeight;
+      }, 0);
+    });
 
     // Authenticate user 
     this.cookieService.authenticated$.subscribe(auth => {
@@ -46,12 +49,12 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   sendMessage() {
-    if (this.newMessage.trim() === '') return
-    this.chatService.sendMessage(this.newMessage)
-    this.newMessage = ''
+    if (this.newMessage.trim() === '') return;
+    this.chatService.sendMessage(this.newMessage);
+    this.newMessage = '';
   }
 
   ngOnDestroy() {
-    this.chatService.disconnect()
+    this.chatService.disconnect();
   }
 }
