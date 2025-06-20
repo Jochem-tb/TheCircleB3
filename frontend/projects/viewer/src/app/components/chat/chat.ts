@@ -1,8 +1,10 @@
-import { Component, Input, OnDestroy, OnInit } from '@angular/core';
-import { ChatMessage, ChatService } from '../../services/chat.service';
-import { generateDevIdentity } from '../../utils/dev.auth';
-import { FormsModule } from '@angular/forms';
-import { CommonModule } from '@angular/common';
+import { Component, Input, OnDestroy, OnInit } from '@angular/core'
+import { ChatMessage, ChatService } from '../../services/chat.service'
+import { generateDevIdentity } from '../../utils/dev.auth'
+import { FormsModule } from '@angular/forms'
+import { CommonModule } from '@angular/common'
+import { CookieService } from '../../pages/service/cookie.service'
+
 
 @Component({
   selector: 'app-chat',
@@ -17,8 +19,12 @@ export class ChatComponent implements OnInit, OnDestroy {
   messages: ChatMessage[] = [];
   newMessage: string = '';
   authenticated: boolean = false;
+  errorMessage: string | null = null;
 
-  constructor(private chatService: ChatService) {}
+  constructor(
+    private chatService: ChatService,
+    private cookieService: CookieService
+  ) { }
 
   async ngOnInit() {
     if (!this.streamerId) {
@@ -28,6 +34,11 @@ export class ChatComponent implements OnInit, OnDestroy {
 
     // Connect to chat room using streamerId passed from parent
     this.chatService.connect(this.streamerId);
+    this.chatService.connectionError$.subscribe(error => {
+    this.errorMessage = error;
+  });
+
+    
 
     // Subscribe to messages
     this.chatService.messages$.subscribe(msg => {
@@ -38,14 +49,10 @@ export class ChatComponent implements OnInit, OnDestroy {
       }, 0);
     });
 
-    // Generate identity and authenticate (for testing/dev)
-    try {
-      const { publicKey, signature } = await generateDevIdentity(this.streamerId);
-      this.chatService.authenticate(this.streamerId, publicKey, signature);
-      this.authenticated = true;
-    } catch (err) {
-      console.error('Failed to generate identity:', err);
-    }
+    // Authenticate user 
+    this.cookieService.authenticated$.subscribe(auth => {
+      this.authenticated = auth;
+    });
   }
 
   sendMessage() {

@@ -1,10 +1,11 @@
-import { Component } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { HttpClientModule } from '@angular/common/http';
-
+import { CookieService } from '../../pages/service/cookie.service';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-header',
@@ -13,14 +14,28 @@ import { HttpClientModule } from '@angular/common/http';
   imports: [CommonModule, FormsModule, HttpClientModule],
   styleUrls: ['./header.component.css']  // fixed typo styleUrl → styleUrls
 })
-export class HeaderComponent {
+export class HeaderComponent implements OnInit, OnDestroy{
   showPopup = false;
   userName = '';
   privateKey = '';
+  isLoggedIn = false;
+  dropdownOpen = false;
+  private authSubscription!: Subscription;
   constructor(
     private router: Router,
-    private http: HttpClient
+    private http: HttpClient,
+    private cookieService: CookieService
   ) { }
+
+  ngOnDestroy(): void {
+    this.authSubscription.unsubscribe();
+  }
+
+  ngOnInit(): void {
+    this.authSubscription = this.cookieService.authenticated$.subscribe(isAuth => {
+      this.isLoggedIn = isAuth;
+    });
+  }
 
 
   onLeftImageClick() {
@@ -72,8 +87,10 @@ export class HeaderComponent {
       console.log('Authentication response:', authResp);
 
       if (authResp && authResp.authenticated) {
+        this.cookieService.setAuthCookie();
+         this.isLoggedIn = true;
+
         alert('Authentication successful!');
-        this.router.navigate(['/']);
       }
 
       // Clear and close popup
@@ -81,18 +98,9 @@ export class HeaderComponent {
       this.showPopup = false;
     } catch (err) {
       console.error('Error during authentication:', err);
-
-      if (err instanceof HttpErrorResponse) {
-        console.error('HTTP status:', err.status);
-        console.error('Error message:', err.message);
-        console.error('Error body:', err.error);
-      } else if (err instanceof Error) {
-        console.error('General error:', err.message);
-      } else {
-        console.error('Unknown error:', err);
-      }
-
       alert('Authentication failed. See console for details.');
+      window.location.reload();
+
     }
   }
 
@@ -182,5 +190,21 @@ export class HeaderComponent {
     }
     return array;
   }
+
+  toggleDropdown(): void {
+  this.dropdownOpen = !this.dropdownOpen;
+}
+
+closeDropdown(): void {
+  this.dropdownOpen = false;
+}
+
+logout(): void {
+  console.log('Logout clicked');
+  this.cookieService.clearAuthCookie();
+  this.isLoggedIn = false;
+  this.dropdownOpen = false;
+
+}
 
 }
