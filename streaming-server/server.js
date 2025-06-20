@@ -4,61 +4,67 @@ const WebSocket = require('ws');
 const mediasoup = require('mediasoup');
 const cors = require('cors');
 
+// Initialize Express app with CORS setup
 const app = express();
 app.use(cors({
-  origin: '*', // change later, this is for development only
+  origin: '*', // In production, replace '*' with the specific domain
 }));
 
+// Create the HTTP server and WebSocket server
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-const rooms = new Map();
+const rooms = new Map(); // Maps streamer ID to the associated room
+let worker; // Mediasoup worker for media processing
 
-let worker;
+// Start the Mediasoup worker for media routing
 (async () => {
   worker = await mediasoup.createWorker();
   console.log('Mediasoup worker created');
 })();
 
+// Room class for managing streamers and their viewers
 class Room {
   constructor(streamerId) {
-    this.streamerId = streamerId;
-    this.router = null;
-    this.streamerTransport = null;
-    this.streamerProducers = new Map();
-    this.viewers = new Map();
+    this.streamerId = streamerId;  // Store the streamer's ID
+    this.router = null;             // Mediasoup router for handling media
+    this.streamerTransport = null;  // WebRTC transport for streamer's media
+    this.streamerProducers = new Map(); // Tracks producers (streamer's media)
+    this.viewers = new Map();       // Tracks connected viewers
   }
 }
 
-// Endpoint to get active streamers
+// Route to list all active streams (i.e., rooms with active streamers)
 app.get('/streams', (req, res) => {
-  const activeStreams = Array.from(rooms.entries())
-    .filter(([_, room]) => room.streamerProducers.size > 0)
-    .map(([streamerId]) => ({ streamerId }));
-  res.json(activeStreams);
+  const activeStreams = Array.from(rooms.entries()) // Get all rooms
+    .filter(([_, room]) => room.streamerProducers.size > 0) // Only include rooms with active producers
+    .map(([streamerId]) => ({ streamerId })); // Extract streamer IDs
+  res.json(activeStreams); // Send the list of active streams as a response
 });
 
+// WebSocket connection handling for streamers and viewers
 wss.on('connection', async (ws) => {
   let role, room, streamerId, viewerId;
 
   console.log('New WebSocket connection established');
 
+  // Handle incoming WebSocket messages (from streamers or viewers)
   ws.on('message', async (msg) => {
-    const data = JSON.parse(msg);
+    const data = JSON.parse(msg); // Parse the incoming message
 
     switch (data.type) {
       case 'create-room': {
-        // Creating a room for the streamer
+        // Streamer is creating a new room
         streamerId = data.streamerId;
         role = 'streamer';
         room = new Room(streamerId);
         room.router = await worker.createRouter({
           mediaCodecs: [
-            { kind: 'video', mimeType: 'video/VP8', clockRate: 90000 },
-            { kind: 'audio', mimeType: 'audio/opus', clockRate: 48000, channels: 2 }
+            { kind: 'video', mimeType: 'video/VP8', clockRate: 90000 }, // Video codec
+            { kind: 'audio', mimeType: 'audio/opus', clockRate: 48000, channels: 2 } // Audio codec
           ]
         });
-        rooms.set(streamerId, room);
+        rooms.set(streamerId, room); // Save the room for the streamer
         console.log(`Room created for streamer: ${streamerId}`);
         printRoomList();
         ws.send(JSON.stringify({ type: 'room-created' }));
@@ -66,13 +72,13 @@ wss.on('connection', async (ws) => {
       }
 
       case 'create-streamer-transport': {
-        // Creating transport for the streamer's WebRTC
+        // Streamer is creating a transport for their media stream
         if (!room?.router) return;
         const transport = await room.router.createWebRtcTransport({
           listenIps: [{ ip: '127.0.0.1', announcedIp: null }],
           enableUdp: true,
           enableTcp: true,
-          preferUdp: true
+          preferUdp: true // Prioritize UDP for better streaming performance
         });
         room.streamerTransport = transport;
         console.log(`Streamer transport created for ${streamerId}`);
@@ -89,13 +95,12 @@ wss.on('connection', async (ws) => {
       }
 
       case 'get-router-rtp-capabilities': {
-        // Sending router RTP capabilities
+        // Send the RTP capabilities of the router to the client
         const room = rooms.get(data.streamerId);
         if (!room || !room.router) {
           console.warn(`No router for streamer ${data.streamerId}`);
           return;
         }
-
         ws.send(JSON.stringify({
           type: 'router-rtp-capabilities',
           data: room.router.rtpCapabilities
@@ -104,7 +109,7 @@ wss.on('connection', async (ws) => {
       }
 
       case 'connect-streamer-transport': {
-        // Connecting the streamer's WebRTC transport
+        // Streamer connects their WebRTC transport
         if (!room?.streamerTransport) return;
         await room.streamerTransport.connect({ dtlsParameters: data.dtlsParameters });
         console.log(`Streamer transport connected for ${streamerId}`);
@@ -113,11 +118,11 @@ wss.on('connection', async (ws) => {
       }
 
       case 'produce': {
-        // Producing a stream from the streamer
+        // Streamer is producing media (audio/video)
         if (!room?.streamerTransport) return;
         const producer = await room.streamerTransport.produce({
-          kind: data.kind,
-          rtpParameters: data.rtpParameters
+          kind: data.kind, // Audio or video
+          rtpParameters: data.rtpParameters // RTP parameters for the stream
         });
         room.streamerProducers.set(data.kind, producer);
         console.log(`Streamer ${streamerId} produced: ${data.kind}`);
@@ -126,7 +131,7 @@ wss.on('connection', async (ws) => {
       }
 
       case 'create-viewer-transport': {
-        // Creating transport for the viewer to connect to the stream
+        // Viewer is connecting to a stream
         role = 'viewer';
         viewerId = data.viewerId;
         room = rooms.get(data.streamerId);
@@ -134,7 +139,6 @@ wss.on('connection', async (ws) => {
           console.warn(`Viewer tried to join unknown room: ${data.streamerId}`);
           return;
         }
-
         const transport = await room.router.createWebRtcTransport({
           listenIps: [{ ip: '127.0.0.1', announcedIp: null }],
           enableUdp: true,
@@ -142,8 +146,7 @@ wss.on('connection', async (ws) => {
           preferUdp: true
         });
         room.viewers.set(viewerId, { transport, consumers: new Map() });
-
-        console.log(`Viewer connected: ${viewerId} to streamer: ${data.streamerId}`);
+        console.log(`Viewer ${viewerId} connected to streamer ${data.streamerId}`);
         ws.send(JSON.stringify({
           type: 'viewer-transport-created',
           params: {
@@ -157,7 +160,7 @@ wss.on('connection', async (ws) => {
       }
 
       case 'connect-viewer-transport': {
-        // Connecting the viewer's WebRTC transport
+        // Viewer connects their WebRTC transport
         if (!room || !room.viewers.has(data.viewerId)) return;
         const viewer = room.viewers.get(data.viewerId);
         await viewer.transport.connect({ dtlsParameters: data.dtlsParameters });
@@ -167,7 +170,7 @@ wss.on('connection', async (ws) => {
       }
 
       case 'consume': {
-        // The viewer consumes the stream produced by the streamer
+        // Viewer starts consuming a media stream
         if (!room || !room.viewers.has(data.viewerId)) return;
         const producer = room.streamerProducers.get(data.kind);
         if (!producer) {
@@ -184,7 +187,6 @@ wss.on('connection', async (ws) => {
 
         viewer.consumers.set(data.kind, consumer);
         console.log(`Viewer ${data.viewerId} consuming ${data.kind}`);
-
         consumer.on('transportclose', () => {
           console.log(`Consumer transport closed (${data.kind})`);
         });
@@ -203,8 +205,8 @@ wss.on('connection', async (ws) => {
     }
   });
 
+  // Handle WebSocket closure
   ws.on('close', () => {
-    // Handle WebSocket closure and clean up rooms
     if (role === 'streamer' && streamerId) {
       console.log(`Streamer '${streamerId}' disconnected and room removed`);
       rooms.delete(streamerId);
@@ -215,12 +217,13 @@ wss.on('connection', async (ws) => {
   });
 });
 
+// Helper function to log active rooms (streamers)
 function printRoomList() {
-  // Print out the list of current streamers
   const ids = Array.from(rooms.keys());
   console.log(`Current streamers: ${ids.length > 0 ? ids.join(', ') : '(none)'}`);
 }
 
+// Start the server and listen on port 3002
 server.listen(3002, () => {
   console.log('Mediasoup streaming server listening on http://localhost:3002');
 });
