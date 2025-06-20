@@ -24,4 +24,8 @@
       <h3>Not authenticated</h3>
     </div>
   </div>
+
+  <div *ngIf="errorMessage" class="chat-error">
+  {{ errorMessage }}
+</div>
 </div>

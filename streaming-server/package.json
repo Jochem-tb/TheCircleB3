@@ -11,7 +11,9 @@
   "type": "commonjs",
   "description": "",
   "dependencies": {
+    "cors": "^2.8.5",
     "express": "^5.1.0",
+    "mediasoup": "^3.16.0",
     "ws": "^8.18.2"
   }
 }

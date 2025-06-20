@@ -2,7 +2,7 @@ services:
     chat-server:
         build: ./chat-server
         ports:
-            - "3000:3000"
+            - "8080:8080"
         restart: always
 
     frontend-viewer-dev:
@@ -19,16 +19,19 @@ services:
             - CHOKIDAR_USEPOLLING=true
 
     # DOESNT WORK
-    frontend-viewer:
+    frontend-dev:
         build:
             context: ./frontend
-            args:
-                APP_NAME: viewer
+            dockerfile: Dockerfile.dev
         ports:
-            - "4200:80"
-        # depends_on:
-        #   - chat-server
-        restart: always
+            - "4200:4200"
+        volumes:
+            - ./frontend:/app
+            - /app/node_modules
+        command: npm run start -- --project viewer --host 0.0.0.0 --poll=1000
+        environment:
+            - CHOKIDAR_USEPOLLING=true
+
     # DOESNT WORK
     frontend-streamer:
         build:
@@ -44,7 +47,9 @@ services:
     ingest-server:
         build: ./ingest-server
         ports:
-            - "4000:4000" # Adjust depending on how ingest works
+            - "1935:1935" # RTMP ingest
+            - "8000:8000" # HTTP
+            - "8090:8090" # WHIP
         restart: always
         volumes:
             - ./ingest-server/recordings:/app/recordings

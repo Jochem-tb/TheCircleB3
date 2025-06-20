@@ -1,14 +1,7 @@
 const generateChallenge = require('../utils/challenge');
-const verifySignature = require('../utils/verifySignature');
+const { verifySignatureChallenge } = require('../utils/verifySignature');
 const logger = require('../utils/logger');
 const { connect } = require('../utils/mongodbClient');
-
-// Fake DB
-// const userPublicKeys = {
-//   alice: `-----BEGIN PUBLIC KEY-----
-// ... public key hier ...
-// -----END PUBLIC KEY-----`,
-// };
 
 const challenges = {};
 
@@ -41,15 +34,7 @@ exports.verifyUser = (username, signature, public_key) => {
     throw new Error('Challenge not found or expired.');
   }
 
-  return verifySignature(challenge, public_key, signature);
+  return verifySignatureChallenge(challenge, public_key, signature);
 };
 
-
-// Alleen voor tests: public key toevoegen aan fake "DB"
-// exports.__setPublicKeyForTest = (username, pubKey) => {
-//   userPublicKeys[username] = pubKey;
-// };
-
-// // Eventueel voor debug in testomgeving
-// exports._userPublicKeys = userPublicKeys;
 exports._challenges = challenges;

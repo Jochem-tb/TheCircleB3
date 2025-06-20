@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 
-function verifySignature(challenge, publicKey, signature) {
-  console.log('--- verifySignature ---');
+function verifySignatureChallenge(challenge, publicKey, signature) {
+  console.log('--- verifySignatureChallenge ---');
   console.log('Challenge (hex):', challenge);
   console.log('Public Key (PEM start):', publicKey.slice(0, 30) + '...');
   console.log('Signature (base64):', signature);
@@ -35,4 +35,18 @@ function verifySignature(challenge, publicKey, signature) {
   }
 }
 
-module.exports = verifySignature;
+function verifySignature(message, publicKey, signature) {
+    const verify = crypto.createVerify('SHA256');
+    verify.update(message);
+    verify.end(); 
+    try {
+        return verify.verify(publicKey, Buffer.from(signature, 'base64'));
+    } catch {
+        return false;
+    }
+}
+
+module.exports = {
+  verifySignatureChallenge,
+  verifySignature,
+};
