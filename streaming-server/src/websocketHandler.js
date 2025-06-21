@@ -1,6 +1,7 @@
 const WebSocket = require('ws');
 const { Room } = require('./room');
 const mediasoupWorker = require('./mediasoupWorker');
+const { logEvent } = require('./logging/logger'); // toevoegen bovenin websocketHandler.js
 
 // Store rooms globally for the WebSocket server
 const rooms = new Map();
@@ -81,12 +82,22 @@ module.exports.setupWebSocket = (server) => {
           case 'produce': {
             // Streamer is producing media (audio/video)
             if (!room?.streamerTransport) return;
+
             const producer = await room.streamerTransport.produce({
               kind: data.kind,
               rtpParameters: data.rtpParameters
             });
+
             room.streamerProducers.set(data.kind, producer);
             console.log(`Streamer ${streamerId} produced: ${data.kind}`);
+
+            await logEvent({
+              eventType: "stream_start",
+              userId: streamerId,
+              sessionId: streamerId,
+              metadata: { kind: data.kind }
+            });
+
             ws.send(JSON.stringify({ type: 'produced', id: producer.id }));
             break;
           }
@@ -172,13 +183,17 @@ module.exports.setupWebSocket = (server) => {
       }
     });
 
-    ws.on('close', () => {
-      // Handle WebSocket closure
+    ws.on('close', async () => {
       if (role === 'streamer' && streamerId) {
-        console.log(`Streamer '${streamerId}' disconnected and room removed`); // Log when streamer disconnects
-        rooms.delete(streamerId); // Remove the room from rooms map
-      } else if (role === 'viewer' && viewerId) {
-        console.log(`Viewer '${viewerId}' disconnected`); // Log when viewer disconnects
+        console.log(`Streamer '${streamerId}' disconnected and room removed`);
+        
+      await logEvent({
+        eventType: "stream_stop",
+        userId: streamerId,
+        sessionId: streamerId
+      });
+
+        rooms.delete(streamerId);
       }
     });
   });

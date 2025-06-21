@@ -7,8 +7,6 @@ import {
     getIngestTransport,
 } from "../mediasoup/transportManager.js";
 import { getRouter } from "../mediasoup/routerManager.js";
-import { logEvent } from "../logging/logger.js";
-
 
 const router = express.Router();
 
@@ -179,18 +177,6 @@ router.post("/:streamId", async (req, res) => {
                 mux: true,
                 },
             },
-            });
-
-            await logEvent({
-                event: "stream_started",
-                streamId,
-                userId: "unknown", // Hier kun je later TruYou-auth integreren
-                details: {
-                    producerId: producer.id,
-                    ip: req.ip,
-                    transportId: transport.id,
-                    kind: producer.kind
-                }
             });
 
             console.log("Poducer paused?", producer.paused);
@@ -387,16 +373,8 @@ router.post("/:streamId", async (req, res) => {
 
 //Check if nessesary to have this endpoint
 // DELETE /whip/:streamId -- teardown the ingest and all producers/viewers
-router.delete("/:streamId", async (req, res) => {
+router.delete("/:streamId", (req, res) => {
     const { streamId } = req.params;
-
-    await logEvent({
-      event: "stream_stopped",
-      streamId,
-      userId: "unknown",
-      details: {}
-    });
-
     streamManager.removeStream(streamId);
     res.sendStatus(204);
 });

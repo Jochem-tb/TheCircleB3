@@ -84,6 +84,8 @@ services:
       - streaming-hls:/var/www/hls
       - streaming-recordings:/var/www/recordings
     restart: always
+    env_file:
+      - .env
 
   streaming-api:
     build: ./streaming-api
