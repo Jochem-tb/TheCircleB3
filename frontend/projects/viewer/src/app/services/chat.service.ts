@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Subject } from 'rxjs';
+import { CookieService } from '../pages/service/cookie.service';
 
 export type ChatMessage = {
   sender: string;
@@ -11,6 +12,11 @@ export type ChatMessage = {
   providedIn: 'root',
 })
 export class ChatService {
+
+  constructor(
+    private cookieService: CookieService
+  ) {}
+
   private ws: WebSocket | null = null;
   private messageSubject = new Subject<ChatMessage>();
   public messages$ = this.messageSubject.asObservable();
@@ -18,6 +24,13 @@ export class ChatService {
   public connectionError$ = this.connectionErrorSubject.asObservable();
 
   private authenticated = false;
+
+  NgOnInit() {
+    // Authenticate user 
+    this.cookieService.authenticated$.subscribe(auth => {
+      this.authenticated = auth;
+    });
+  }
 
   connect(streamerId: string) {
     const url = `ws://localhost:8080/?userId=${streamerId}`;
@@ -32,11 +45,11 @@ export class ChatService {
       try {
         const data = JSON.parse(event.data);
 
-        if (data.status === 'authenticated') {
-          this.authenticated = true;
-          console.log('🔐 Authenticated as', data.name);
-          return;
-        }
+        // if (data.status === 'authenticated') {
+        //   this.authenticated = true;
+        //   console.log('🔐 Authenticated as', data.name);
+        //   return;
+        // }
 
         if (data.error) {
           console.error('❌ Error from server:', data.error);
