@@ -6,20 +6,13 @@
     (click)="onLeftImageClick()"
   />
 
-<div class="right-section">
-  <ng-container *ngIf="isLoggedIn; else loggedOut">
-    <div (click)="toggleDropdown()" style="display: inline-block; cursor: pointer;">
-      Logged in ▼
-    </div>
-    <div class="dropdown-menu" *ngIf="dropdownOpen">
-      <button (click)="logout()">Logout</button>
-    </div>
-  </ng-container>
-
-  <ng-template #loggedOut>
-    <button class="log-in-button"(click)="onProfileClick()">Log in</button>
-  </ng-template>
-</div>
+  <img
+    src="assets/anon.webp" 
+    alt="Right Icon"
+    class="right-image"
+    (click)="onProfileClick()"
+  />
+</header>
 
 <!-- Popup overlay -->
 <div class="popup-overlay" *ngIf="showPopup" (click)="closePopup()">

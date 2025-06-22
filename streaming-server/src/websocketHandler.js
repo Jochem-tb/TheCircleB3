@@ -7,8 +7,6 @@ const { coinHandlerStop } = require('./helpers');
 // Store rooms globally for the WebSocket server
 const rooms = new Map();
 
-let coinInterval;
-
 module.exports.rooms = rooms; // Export rooms for use in server.js
 
 // Setup the WebSocket server and handle incoming connections
@@ -93,7 +91,7 @@ module.exports.setupWebSocket = (server) => {
             room.streamerProducers.set(data.kind, producer);
             console.log(`Streamer ${streamerId} produced: ${data.kind}`);
             ws.send(JSON.stringify({ type: 'produced', id: producer.id }));
-            coinHandlerStart()
+            coinHandlerStart(data.streamerId)
             break;
           }
 

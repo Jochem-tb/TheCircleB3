@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Subject } from 'rxjs';
+import { Subject } from 'rxjs';
 
 export type ChatMessage = {
   sender: string;
@@ -14,8 +14,6 @@ export class ChatService {
   private ws: WebSocket | null = null;
   private messageSubject = new Subject<ChatMessage>();
   public messages$ = this.messageSubject.asObservable();
-  private connectionErrorSubject = new BehaviorSubject<string | null>(null);
-  public connectionError$ = this.connectionErrorSubject.asObservable();
 
   private authenticated = false;
 
@@ -25,7 +23,6 @@ export class ChatService {
 
     this.ws.onopen = () => {
       console.log('✅ WebSocket connection established');
-      this.connectionErrorSubject.next(null);
     };
 
     this.ws.onmessage = (event) => {
@@ -40,7 +37,6 @@ export class ChatService {
 
         if (data.error) {
           console.error('❌ Error from server:', data.error);
-          this.connectionErrorSubject.next('Server error: ' + data.error)
           return;
         }
 
@@ -51,7 +47,6 @@ export class ChatService {
         });
       } catch (err) {
         console.error('❗ Invalid message format:', err);
-        this.connectionErrorSubject.next('Invalid message format received');
       }
     };
 
@@ -62,7 +57,6 @@ export class ChatService {
 
     this.ws.onerror = (err) => {
       console.error('💥 WebSocket error:', err);
-      this.connectionErrorSubject.next('WebSocket error occurred');
     };
   }
 
@@ -80,7 +74,6 @@ export class ChatService {
   sendMessage(messageText: string) {
     if (!this.authenticated) return;
     this.ws?.send(JSON.stringify({ messageText }));
-        console.log("message sending")
   }
 
   isAuthenticated(): boolean {

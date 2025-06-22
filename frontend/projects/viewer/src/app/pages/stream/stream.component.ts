@@ -8,15 +8,13 @@ import {
 import { ActivatedRoute } from '@angular/router';
 import * as mediasoupClient from 'mediasoup-client';
 import { CommonModule } from '@angular/common';
-import { ChatComponent } from '../../components/chat/chat';
-import { CookieService } from '../service/cookie.service';
 
 @Component({
   selector: 'app-stream',
   standalone: true,
   templateUrl: './stream.component.html',
   styleUrls: ['./stream.component.css'],
-  imports: [CommonModule, ChatComponent]
+  imports: [CommonModule]
 })
 export class StreamComponent implements OnInit, AfterViewInit {
   @ViewChild('video', { static: false }) videoRef!: ElementRef<HTMLVideoElement>;
@@ -28,16 +26,12 @@ export class StreamComponent implements OnInit, AfterViewInit {
   recvTransport!: mediasoupClient.types.Transport;
   socket!: WebSocket;
 
-constructor(
-  private route: ActivatedRoute,
-  private cookieService: CookieService
-) {}
+  constructor(private route: ActivatedRoute) {}
 
   ngOnInit(): void {
     // Get the streamer ID from the route
     this.streamerId = this.route.snapshot.params['streamId'];
     console.log('Viewer for streamer:', this.streamerId);
-    this.cookieService.checkAuthCookie();
   }
 
   ngAfterViewInit(): void {

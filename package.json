@@ -1,5 +1,7 @@
 {
   "dependencies": {
-    "cors": "^2.8.5"
+    "cors": "^2.8.5",
+    "mongodb": "6.17",
+    "mongoose": "^8.16.0"
   }
 }
