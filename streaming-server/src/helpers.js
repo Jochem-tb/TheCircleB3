@@ -24,7 +24,7 @@ module.exports.coinHandlerStart = async (streamerId) =>{
     //Add a coin evry hour
     coinInterval = setInterval(async () => {
       streamer.coins += 1;
-      UsersCollection.replaceOne({ streamerId: streamerId }, streamer)
+      UsersCollection.findOneAndUpdate({ streamerId: streamerId }, { "$set": { coins: streamer.coins } })
       console.log('Added one coin')
       console.log(streamer.coins)
     }, 1000 * 60 * 60)
