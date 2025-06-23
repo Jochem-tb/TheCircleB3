@@ -39,6 +39,12 @@ class ChatRoom {
             return ws.send(JSON.stringify({ error: 'Invalid JSON' }));
         }
 
+        if (msg.authenticated) {
+                        
+        } else {
+            return;
+        }
+
         console.log(`Handling message in room ${this.userId}:`, msg);
 
         // if (!msg.name || !msg.publicKey || !msg.signature) {
