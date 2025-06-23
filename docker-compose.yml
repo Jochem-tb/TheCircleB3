@@ -5,6 +5,8 @@ services:
             - "8080:8080"
         restart: always
 
+
+
     frontend-viewer-dev:
         build:
             context: ./frontend
@@ -32,17 +34,33 @@ services:
     #     environment:
     #         - CHOKIDAR_USEPOLLING=true
 
-    # # DOESNT WORK
-    # frontend-streamer:
-    #     build:
-    #         context: ./frontend
-    #         args:
-    #             APP_NAME: streamer
-    #     ports:
-    #         - "4300:80"
-    #     # depends_on:
-    #     #   - truYou-auth
-    #     restart: always
+    frontend-streamer-dev: # Renamed to clearly indicate it's for development
+        build:
+            context: ./frontend
+            dockerfile: Dockerfile.dev # Use the development Dockerfile
+            args:
+                APP_NAME: streamer
+        ports:
+            - "4300:4200" # Map host port 4300 to Angular dev server port 4200
+        volumes:
+            - ./frontend:/app # Mount your local frontend folder into the container
+            - /app/node_modules # Important for node_modules to be managed within the container
+        command: npm run start -- --project streamer --host 0.0.0.0 --poll=1000 # Specify the project and enable polling
+        environment:
+        - CHOKIDAR_USEPOLLING=true # Enable Chokidar polling for better file watching
+    
+
+    # DOESNT WORK
+    frontend-streamer:
+        build:
+            context: ./frontend
+            args:
+                APP_NAME: streamer
+        ports:
+            - "4300:80"
+        # depends_on:
+        #   - truYou-auth
+        restart: always
 
     # ingest-server:
     #     build: ./ingest-server

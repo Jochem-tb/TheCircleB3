@@ -24,8 +24,8 @@
     "mediasoup-client": "^3.11.0",
     "process": "^0.11.10",
     "rxjs": "~7.8.0",
-    "stream": "^0.0.3",
     "socket.io-client": "^4.8.1",
+    "stream": "^0.0.3",
     "tslib": "^2.3.0",
     "util": "^0.12.5",
     "zone.js": "~0.15.0"

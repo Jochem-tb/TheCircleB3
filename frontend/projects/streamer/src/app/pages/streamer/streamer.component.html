@@ -1,12 +1,95 @@
 <div class="streamer-container">
-  <h2>Streamer: {{ streamerId }}</h2>
+  <header>
+    <div class="profile-section">
+      <div *ngIf="isLoggedIn" class="dropdown">
+        <button (click)="toggleDropdown()">Logged in as: {{ streamerId }}</button>
+        <div *ngIf="dropdownOpen" class="dropdown-menu">
+          <button (click)="logout()">Logout</button>
+        </div>
+      </div>
+    </div>
+  </header>
 
-  <video #video autoplay muted playsinline width="640" height="360" style="background: black;"></video>
-
-  <div class="stream-controls">
-    <button (click)="getMediaStream()">Get Media</button>
-    <button (click)="startStreaming()" [disabled]="!mediaStreamAvailable || isStreaming">Start Streaming</button>
+  <!-- Login Popup -->
+  <div *ngIf="showPopup" class="popup">
+    <div class="popup-content">
+      <h2>Login</h2>
+      <form (ngSubmit)="onSubmit()">
+        <div>
+          <label for="username">Username:</label>
+          <input
+            id="username"
+            type="text"
+            [(ngModel)]="userName"
+            name="username"
+            required
+          />
+        </div>
+        <div>
+          <label for="privateKey">Private Key:</label>
+          <input
+            id="privateKey"
+            type="file"
+            (change)="onFileSelected($event)"
+            accept=".pem"
+            required
+          />
+        </div>
+        <button type="submit">Login</button>
+        <button type="button" (click)="closePopup()">Cancel</button>
+      </form>
+    </div>
   </div>
 
-  <p *ngIf="isStreaming">You are now streaming!</p>
+  <!-- Streaming Section -->
+  <div *ngIf="isLoggedIn" class="streaming-controls">
+    <video #video autoplay playsinline muted></video>
+    <div class="controls">
+      <button (click)="getMediaStream()" [disabled]="mediaStreamAvailable">
+        Get Media
+      </button>
+      <button
+        (click)="startStreaming()"
+        [disabled]="isStreaming || !mediaStreamAvailable"
+      >
+        Start Streaming
+      </button>
+    </div>
+
+    <div class="chat-container">
+      <div
+        class="chat-log"
+        id="chat-log"
+        style="height: 300px; padding: 8px"
+      >
+        <div *ngFor="let msg of messages" class="chat-message">
+          <span class="timestamp"
+            >[{{ msg.timestamp | date : "shortTime" }}]</span
+          >
+          <strong>{{ msg.sender }}:</strong>
+          <span>{{ msg.messageText }}</span>
+        </div>
+      </div>
+
+      <div *ngIf="isLoggedIn" class="chat-input" style="margin-top: 8px">
+        <input
+          type="text"
+          [(ngModel)]="newMessage"
+          (keyup.enter)="sendChatMessage()"
+          placeholder="Type a message"
+          aria-label="Chat message"
+          style="width: 80%"
+        />
+        <button (click)="sendChatMessage()" style="width: 18%">Send</button>
+      </div>
+
+      <div
+        *ngIf="chatError"
+        class="chat-error"
+        style="color: red; margin-top: 5px"
+      >
+        {{ chatError }}
+      </div>
+    </div>
+  </div>
 </div>

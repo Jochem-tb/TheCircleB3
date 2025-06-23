@@ -1,10 +1,8 @@
 import { Component, Input, OnDestroy, OnInit } from '@angular/core'
-import { ChatMessage, ChatService } from '../../services/chat.service'
-import { generateDevIdentity } from '../../utils/dev.auth'
+import { ChatMessage, ChatService } from '../../app/services/chat.service'
 import { FormsModule } from '@angular/forms'
 import { CommonModule } from '@angular/common'
-import { CookieService } from '../../services/cookie.service'
-import { timestamp } from 'rxjs'
+import { CookieService } from '../../app/services/cookie.service'
 
 
 @Component({
@@ -58,20 +56,7 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   sendMessage() {
     if (this.newMessage.trim() === '') return;
-
-    const cookie = this.cookieService.getCookie('authenticated');
-    const userName = cookie ? JSON.parse(cookie).userName : 'Anonymous';
-
-    const messageJson = {
-      type:"auth",
-      userName: userName,
-      messageText: this.newMessage,
-      publicKey: "",
-      signature: "",
-      authenticated: this.authenticated,
-    }
-
-    this.chatService.sendMessage(messageJson);
+    this.chatService.sendMessage(this.newMessage);
     this.newMessage = '';
   }
 

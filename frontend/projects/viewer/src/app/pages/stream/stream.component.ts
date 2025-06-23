@@ -9,7 +9,7 @@ import { ActivatedRoute } from '@angular/router';
 import * as mediasoupClient from 'mediasoup-client';
 import { CommonModule } from '@angular/common';
 import { ChatComponent } from '../../components/chat/chat';
-import { CookieService } from '../service/cookie.service';
+import { CookieService } from '../../services/cookie.service';
 
 @Component({
   selector: 'app-stream',

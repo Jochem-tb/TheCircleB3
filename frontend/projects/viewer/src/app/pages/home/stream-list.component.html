@@ -5,7 +5,7 @@
 <div *ngIf="errorMessage">{{ errorMessage }}</div>
 
 <ul *ngIf="!loading && streams.length > 0">
-  <li *ngFor="let stream of streams">
+  <li *ngFor="let stream of streams.slice(1)">
     <a [routerLink]="['/stream', stream.streamerId]">
       Watch {{ stream.streamerId }}
     </a>

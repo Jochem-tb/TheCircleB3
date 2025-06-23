@@ -24,7 +24,7 @@ function hmacAuth(req, res, next) {
 
   // 2. Compute HMAC over ts + raw body
   const hmac = crypto.createHmac("sha256", SHARED_SECRET);
-  const payload = ts + JSON.stringify(req.body);
+  const payload = ts + req.rawBody;
   hmac.update(payload);
   const expected = hmac.digest("hex");
 
