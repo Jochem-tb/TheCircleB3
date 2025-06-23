@@ -29,12 +29,6 @@ async function logEvent({ eventType, userId, sessionId, metadata = {} }) {
         "X-Signature": signature
       }
     });
-
-    if (res.data?.status === "logged") {
-      console.log(`[LOGGING] Logged ${eventType} for ${userId} in ${sessionId}`);
-    } else {
-      console.warn("[LOGGING] Unexpected response from logging-service:", res.data);
-    }
   } catch (err) {
     console.error(`[LOGGING]  Failed to log event: ${eventType}`, err.message);
   }

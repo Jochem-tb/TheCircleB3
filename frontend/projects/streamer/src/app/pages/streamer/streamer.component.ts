@@ -304,15 +304,17 @@ export class StreamerComponent implements OnInit, OnDestroy {
     };
   }
 
-  private send(msg: any): void {
-    // Send a message to the WebSocket server if it's open
-    if (this.socket.readyState === WebSocket.OPEN) {
-      console.log('Sending message to server:', msg);
-      this.socket.send(JSON.stringify(msg));
-    } else {
-      console.warn('Tried to send message but socket not open');
-    }
+private send(msg: any): void {
+  const userId = localStorage.getItem("userId"); // <-- username uit login
+  const enrichedMsg = { ...msg, userId };
+
+  if (this.socket.readyState === WebSocket.OPEN) {
+    console.log('Sending message to server:', enrichedMsg);
+    this.socket.send(JSON.stringify(enrichedMsg));
+  } else {
+    console.warn('Tried to send message but socket not open');
   }
+}
 
   async getMediaStream(): Promise<void> {
     try {
