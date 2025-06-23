@@ -33,6 +33,8 @@ export class StreamerComponent implements OnInit, OnDestroy {
   private socket!: WebSocket;
   private sendTransport!: mediasoupClient.types.Transport;
   private stream!: MediaStream;
+  private videoTrack!: MediaStreamTrack;  // Store video track
+  private audioTrack!: MediaStreamTrack;  // Store audio track
 
   isStreaming = false;
   mediaStreamAvailable = false;
@@ -247,6 +249,9 @@ export class StreamerComponent implements OnInit, OnDestroy {
     if (this.socket) {
       this.socket.close();
     }
+    this.isStreaming = false;
+    this.mediaStreamAvailable = false;
+    this.roomCreated = false;
     this.router.navigate(['/']);
   }
 
@@ -316,6 +321,9 @@ export class StreamerComponent implements OnInit, OnDestroy {
       this.stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       this.videoRef.nativeElement.srcObject = this.stream;
       this.mediaStreamAvailable = true;
+      // Store video and audio tracks
+      [this.videoTrack] = this.stream.getVideoTracks();
+      [this.audioTrack] = this.stream.getAudioTracks();
       console.log('Media stream acquired');
     } catch (err) {
       console.error('Failed to get media stream:', err);
@@ -422,6 +430,22 @@ export class StreamerComponent implements OnInit, OnDestroy {
 
     this.chatService.sendMessage(messageJson);
     this.newMessage = '';
+  }
+
+  // Toggle video visibility (by enabling/disabling the video track)
+  toggleVideo(): void {
+    if (this.videoTrack) {
+      this.videoTrack.enabled = !this.videoTrack.enabled;
+      console.log('Video ' + (this.videoTrack.enabled ? 'shown' : 'hidden'));
+    }
+  }
+
+  // Toggle audio visibility (by enabling/disabling the audio track)
+  toggleAudio(): void {
+    if (this.audioTrack) {
+      this.audioTrack.enabled = !this.audioTrack.enabled;
+      console.log('Audio ' + (this.audioTrack.enabled ? 'unmuted' : 'muted'));
+    }
   }
 
 }
