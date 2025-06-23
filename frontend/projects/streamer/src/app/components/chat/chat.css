@@ -41,6 +41,7 @@
   color: white;
   border: none;
   outline: none;
+  padding: 14px;
 }
 
 .chat-input button {

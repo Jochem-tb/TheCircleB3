@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { HttpClientModule } from '@angular/common/http';
-import { CookieService } from '../../pages/service/cookie.service';
+import { CookieService } from '../../services/cookie.service';
 import { Subscription } from 'rxjs';
 
 

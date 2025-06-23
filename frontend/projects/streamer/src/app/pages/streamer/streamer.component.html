@@ -1,7 +1,6 @@
 <div class="streamer-container">
   <header>
     <div class="profile-section">
-      <button *ngIf="!isLoggedIn" (click)="onProfileClick()">Login</button>
       <div *ngIf="isLoggedIn" class="dropdown">
         <button (click)="toggleDropdown()">Logged in as: {{ streamerId }}</button>
         <div *ngIf="dropdownOpen" class="dropdown-menu">
@@ -44,7 +43,6 @@
 
   <!-- Streaming Section -->
   <div *ngIf="isLoggedIn" class="streaming-controls">
-    <div class="logged-in-text" *ngIf="isLoggedIn">Logged in as: {{ streamerId }}</div>
     <video #video autoplay playsinline muted></video>
     <div class="controls">
       <button (click)="getMediaStream()" [disabled]="mediaStreamAvailable">
@@ -62,7 +60,7 @@
       <div
         class="chat-log"
         id="chat-log"
-        style="height: 300px; border: 1px solid #ccc; padding: 8px"
+        style="height: 300px; padding: 8px"
       >
         <div *ngFor="let msg of messages" class="chat-message">
           <span class="timestamp"

@@ -3,7 +3,7 @@ import { ChatMessage, ChatService } from '../../services/chat.service'
 import { generateDevIdentity } from '../../utils/dev.auth'
 import { FormsModule } from '@angular/forms'
 import { CommonModule } from '@angular/common'
-import { CookieService } from '../../pages/service/cookie.service'
+import { CookieService } from '../../services/cookie.service'
 
 
 @Component({

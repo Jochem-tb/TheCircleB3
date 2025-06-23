@@ -79,3 +79,18 @@ button {
   color: white;
   margin-bottom: 10px;
 }
+
+.chat-input {
+  display: flex;
+  border-top: 1px solid #333;
+  padding: 8px;
+}
+
+.timestamp {
+  color: #a91d1d;
+  margin-right: 6px;
+}
+
+.chat-log {
+  background-color: rgb(45, 45, 46);
+}
