@@ -1,5 +1,7 @@
 const authServices = require('../services/auth.services');
 const logger = require('../utils/logger');
+const dbService = require('../utils/mongodbClient');
+
 
 exports.getChallenge = async (req, res, next) => {
   try {
@@ -20,7 +22,7 @@ exports.getChallenge = async (req, res, next) => {
   }
 };
 
-exports.postAuthenticate = (req, res, next) => {
+exports.postAuthenticate = async (req, res, next) => {
   try {
     const { username, signature, public_key } = req.body;
     logger.info(`Authenticating user: ${username}`);
@@ -31,17 +33,24 @@ exports.postAuthenticate = (req, res, next) => {
     }
 
     const result = authServices.verifyUser(username, signature, public_key);
-    const payload = {
-      username: username,
-      authenticated: result,
-    };
-    console.info(`Authentication result for user ${username}:`, result);
-
-    if (result) {
-      res.send(payload);
-    } else {
-      res.status(401).send('Invalid signature.');
+    if (!result) {
+      return res.status(401).send('Invalid signature.');
     }
+
+    // Connectie naar MongoDB en user ophalen
+    const db = await dbService.connect();
+    const user = await db.collection("User").findOne({ userName: username });
+
+    if (!user) {
+      return res.status(404).send('User not found in DB.');
+    }
+
+    // Stuurt userId mee terug
+    res.json({
+      authenticated: true,
+      userId: user._id,
+      userName: user.userName
+    });
   } catch (err) {
     next(err);
   }

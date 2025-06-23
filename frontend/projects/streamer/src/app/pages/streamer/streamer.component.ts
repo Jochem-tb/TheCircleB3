@@ -28,6 +28,7 @@ export class StreamerComponent implements OnInit {
 
   ngOnInit(): void {
     // Initialize streamer ID from route parameters
+    localStorage.setItem('userId', '6847fe0662169352038cb514'); // ← test met 'john'
     this.streamerId = this.route.snapshot.params['streamerId'];
     console.log(`StreamerComponent initialized with ID: ${this.streamerId}`);
     this.initWebSocket();
@@ -82,15 +83,17 @@ export class StreamerComponent implements OnInit {
     };
   }
 
-  private send(msg: any): void {
-    // Send a message to the WebSocket server if it's open
-    if (this.socket.readyState === WebSocket.OPEN) {
-      console.log('Sending message to server:', msg);
-      this.socket.send(JSON.stringify(msg));
-    } else {
-      console.warn('Tried to send message but socket not open');
-    }
+private send(msg: any): void {
+  const userId = localStorage.getItem("userId"); // <-- username uit login
+  const enrichedMsg = { ...msg, userId };
+
+  if (this.socket.readyState === WebSocket.OPEN) {
+    console.log('Sending message to server:', enrichedMsg);
+    this.socket.send(JSON.stringify(enrichedMsg));
+  } else {
+    console.warn('Tried to send message but socket not open');
   }
+}
 
   async getMediaStream(): Promise<void> {
     try {

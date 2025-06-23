@@ -25,7 +25,8 @@ module.exports.setupWebSocket = (server) => {
             // Streamer is creating a new room
             streamerId = data.streamerId;
             role = 'streamer';
-            room = new Room(streamerId);
+            room = new Room(streamerId);  
+            room.userId = data.userId; // ✅ userId opslaan
             room.router = await mediasoupWorker.createRouter();
             rooms.set(streamerId, room);
             console.log(`Room created for streamer: ${streamerId}`);
@@ -91,13 +92,21 @@ module.exports.setupWebSocket = (server) => {
             room.streamerProducers.set(data.kind, producer);
             console.log(`Streamer ${streamerId} produced: ${data.kind}`);
 
-            await logEvent({
-              eventType: "stream_start",
-              userId: streamerId,
-              sessionId: streamerId,
-              metadata: { kind: data.kind }
-            });
+            const userId = data.userId || 'unknown';
+            const streamId = data.streamerId;
 
+            if (!room.hasLoggedStart) {
+              await logEvent({
+                eventType: 'stream_start',
+                userId,
+                sessionId: streamId,
+                metadata: {
+                  kind: data.kind,
+                  ip: ws._socket?.remoteAddress
+                }
+              });
+              room.hasLoggedStart = true;
+            }
             ws.send(JSON.stringify({ type: 'produced', id: producer.id }));
             break;
           }
@@ -184,16 +193,16 @@ module.exports.setupWebSocket = (server) => {
     });
 
     ws.on('close', async () => {
-      if (role === 'streamer' && streamerId) {
+      if (role === 'streamer' && streamerId && room?.hasLoggedStart) {
+        await logEvent({
+          eventType: "stream_stop",
+          userId: room.userId || "unknown",
+          sessionId: streamerId
+        });
         console.log(`Streamer '${streamerId}' disconnected and room removed`);
-        
-      await logEvent({
-        eventType: "stream_stop",
-        userId: streamerId,
-        sessionId: streamerId
-      });
-
         rooms.delete(streamerId);
+      } else if (role === 'viewer' && viewerId) {
+        console.log(`Viewer '${viewerId}' disconnected`);
       }
     });
   });
