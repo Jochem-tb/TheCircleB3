@@ -402,9 +402,25 @@ export class StreamerComponent implements OnInit, OnDestroy {
   get username(): string {
     return this.streamerId;
   }
+
+
     sendChatMessage(): void {
     if (this.newMessage.trim() === '') return;
-    this.chatService.sendMessage(this.newMessage);
+
+    const cookie = this.cookieService.getCookie('authenticated');
+    const userName = cookie ? JSON.parse(cookie).userName : 'Anonymous';
+    const authenticated = this.cookieService.checkAuthCookie();
+
+    const messageJson = {
+      type:"auth",
+      userName: userName,
+      messageText: this.newMessage,
+      publicKey: "",
+      signature: "",
+      authenticated: authenticated,
+    }
+
+    this.chatService.sendMessage(messageJson);
     this.newMessage = '';
   }
 

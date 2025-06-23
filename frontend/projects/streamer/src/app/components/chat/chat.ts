@@ -1,8 +1,8 @@
 import { Component, Input, OnDestroy, OnInit } from '@angular/core'
-import { ChatMessage, ChatService } from '../../app/services/chat.service'
+import { ChatMessage, ChatService } from '../../services/chat.service'
 import { FormsModule } from '@angular/forms'
 import { CommonModule } from '@angular/common'
-import { CookieService } from '../../app/services/cookie.service'
+import { CookieService } from '../../services/cookie.service'
 
 
 @Component({
@@ -49,14 +49,30 @@ export class ChatComponent implements OnInit, OnDestroy {
     });
 
     // Authenticate user 
-    this.cookieService.authenticated$.subscribe(auth => {
+     this.cookieService.authenticated$.subscribe((auth: any) => {
       this.authenticated = auth;
     });
   }
 
-  sendMessage() {
+   sendMessage() {
+    console.log('Sending message:', this.newMessage);
     if (this.newMessage.trim() === '') return;
-    this.chatService.sendMessage(this.newMessage);
+
+    const cookie = this.cookieService.getCookie('streamer_auth');
+    const userName = cookie ? JSON.parse(cookie).userName : 'Anonymous';
+
+    console.log('Sending message:', this.newMessage, 'from user:', userName);
+
+    const messageJson = {
+      type:"auth",
+      userName: userName,
+      messageText: this.newMessage,
+      publicKey: "",
+      signature: "",
+      authenticated: this.authenticated,
+    }
+
+    this.chatService.sendMessage(messageJson);
     this.newMessage = '';
   }
 
@@ -64,3 +80,4 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.chatService.disconnect();
   }
 }
+

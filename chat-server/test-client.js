@@ -41,7 +41,7 @@ sign.end();
 const signature = sign.sign(privateKey).toString('base64');
 
 // Open a WebSocket connection.
-const ws = new WebSocket(`ws://localhost:8080/?userId=${userId}`);
+const ws = new WebSocket(`ws://localhost:8081/?userId=${userId}`);
 
 // When connection opens:
 ws.on('open', () => {

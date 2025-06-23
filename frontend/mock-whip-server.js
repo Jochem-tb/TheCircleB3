@@ -29,6 +29,6 @@ a=rtpmap:96 VP8/90000`;
   }
 });
 
-server.listen(8080, () => {
-  console.log('Mock WHIP server draait op http://localhost:8080');
+server.listen(8081, () => {
+  console.log('Mock WHIP server draait op http://localhost:8081');
 });
