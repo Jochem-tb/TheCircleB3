@@ -1,0 +1,39 @@
+<header class="header">
+  <img 
+    src="assets/circle.png" 
+    alt="Left Logo" 
+    class="left-image" 
+    (click)="onLeftImageClick()"
+  />
+
+<div class="right-section">
+  <ng-container *ngIf="isLoggedIn; else loggedOut">
+    <div (click)="toggleDropdown()" style="display: inline-block; cursor: pointer;">
+      Logged in ▼
+    </div>
+    <div class="dropdown-menu" *ngIf="dropdownOpen">
+      <button (click)="logout()">Logout</button>
+    </div>
+  </ng-container>
+
+  <ng-template #loggedOut>
+    <button class="log-in-button"(click)="onProfileClick()">Log in</button>
+  </ng-template>
+</div>
+
+<!-- Popup overlay -->
+<div class="popup-overlay" *ngIf="showPopup" (click)="closePopup()">
+  <div class="popup-content" (click)="$event.stopPropagation()">
+    <input
+      type="text"
+      [(ngModel)]="userName"
+      placeholder="Username"
+    />
+     <input
+      type="file"
+      (change)="onFileSelected($event)"
+      accept=".pem"
+    />
+    <button (click)="onSubmit()">Enter</button>
+  </div>
+</div>

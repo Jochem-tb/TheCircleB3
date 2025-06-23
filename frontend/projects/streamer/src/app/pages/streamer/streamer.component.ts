@@ -1,19 +1,29 @@
-import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
-import * as mediasoupClient from 'mediasoup-client';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { HttpClient, HttpClientModule } from '@angular/common/http';
+import { CookieService } from '../../services/cookie.service';
+import { Subscription } from 'rxjs';
+import * as mediasoupClient from 'mediasoup-client';
 
 @Component({
   selector: 'app-streamer',
   templateUrl: './streamer.component.html',
   styleUrls: ['./streamer.component.css'],
   standalone: true,
-  imports: [CommonModule]
+  imports: [CommonModule, FormsModule, HttpClientModule],
 })
-export class StreamerComponent implements OnInit {
+export class StreamerComponent implements OnInit, OnDestroy {
   @ViewChild('video', { static: true }) videoRef!: ElementRef<HTMLVideoElement>;
 
   streamerId: string = '';
+  userName: string = '';
+  privateKey: string = '';
+  showPopup: boolean = false;
+  isLoggedIn: boolean = false;
+  dropdownOpen: boolean = false;
+  private authSubscription!: Subscription;
   private device!: mediasoupClient.Device;
   private socket!: WebSocket;
   private sendTransport!: mediasoupClient.types.Transport;
@@ -24,13 +34,197 @@ export class StreamerComponent implements OnInit {
   roomCreated = false;
   deviceLoaded = false;
 
-  constructor(private route: ActivatedRoute) {}
+  constructor(
+    private route: ActivatedRoute,
+    private router: Router,
+    private http: HttpClient,
+    private cookieService: CookieService
+  ) {}
 
   ngOnInit(): void {
-    // Initialize streamer ID from route parameters
-    this.streamerId = this.route.snapshot.params['streamerId'];
-    console.log(`StreamerComponent initialized with ID: ${this.streamerId}`);
-    this.initWebSocket();
+    // Subscribe to authentication status
+    this.authSubscription = this.cookieService.authenticated$.subscribe((isAuth) => {
+      this.isLoggedIn = isAuth;
+      if (isAuth) {
+        // Retrieve username from cookie or server if needed
+        const cookie = this.cookieService.getCookie('authenticated');
+        if (cookie) {
+          try {
+            const data = JSON.parse(cookie);
+            this.streamerId = data.username || this.userName; // Set streamerId to username
+            this.initWebSocket();
+          } catch (e) {
+            console.error('Error parsing auth cookie:', e);
+          }
+        }
+      }
+    });
+
+    // Check initial auth status
+    this.isLoggedIn = this.cookieService.checkAuthCookie();
+    if (!this.isLoggedIn) {
+      this.showPopup = true; // Show login popup if not authenticated
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (this.authSubscription) {
+      this.authSubscription.unsubscribe();
+    }
+    if (this.socket) {
+      this.socket.close();
+    }
+  }
+
+  // Login popup and authentication
+  onProfileClick(): void {
+    console.log('Profile clicked');
+    this.showPopup = true;
+  }
+
+  async onSubmit(): Promise<void> {
+    if (!this.userName || !this.privateKey) {
+      alert('Please provide username and private key file');
+      return;
+    }
+
+    try {
+      // Step 1: Get challenge and public key from server
+      const resp: any = await this.http
+        .get(`http://localhost:3000/auth/challenge?username=${this.userName}`)
+        .toPromise();
+
+      const { challenge, public_key } = resp;
+
+      // Step 2: Sign the challenge using the private key
+      const signature = await this.signChallenge(challenge, this.privateKey);
+
+      // Step 3: Send signature + username + public_key to authenticate endpoint
+      const payload = {
+        username: this.userName,
+        signature,
+        public_key,
+      };
+
+      console.log('Sending authentication payload:', payload);
+
+      interface AuthResponse {
+        authenticated: boolean;
+        username: string;
+      }
+
+      const authResp = await this.http
+        .post<AuthResponse>('http://localhost:3000/auth/authenticate', payload)
+        .toPromise();
+
+      console.log('Authentication response:', authResp);
+
+      if (authResp && authResp.authenticated) {
+        this.cookieService.setAuthCookie();
+        this.isLoggedIn = true;
+        this.streamerId = this.userName; // Set streamerId to authenticated username
+        this.initWebSocket(); // Initialize WebSocket after login
+        alert('Authentication successful!');
+        this.userName = '';
+        this.privateKey = '';
+        this.showPopup = false;
+      }
+    } catch (err) {
+      console.error('Error during authentication:', err);
+      alert('Authentication failed. See console for details.');
+      this.router.navigate(['/']); // Redirect to home on failure
+    }
+  }
+
+  closePopup(): void {
+    this.showPopup = false;
+  }
+
+  onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+
+    const file = input.files[0];
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      this.privateKey = (reader.result as string).trim();
+      console.log('Private key loaded:', this.privateKey);
+    };
+
+    reader.onerror = () => {
+      console.error('Error reading file');
+    };
+
+    reader.readAsText(file);
+  }
+
+  async signChallenge(challenge: string, privateKeyPem: string): Promise<string> {
+    const pemContents = privateKeyPem
+      .replace(/-----BEGIN PRIVATE KEY-----/, '')
+      .replace(/-----END PRIVATE KEY-----/, '')
+      .replace(/\r?\n|\r/g, '')
+      .trim();
+
+    const binaryDer = Uint8Array.from(window.atob(pemContents), (c) => c.charCodeAt(0));
+
+    const key = await window.crypto.subtle.importKey(
+      'pkcs8',
+      binaryDer.buffer,
+      {
+        name: 'RSASSA-PKCS1-v1_5',
+        hash: { name: 'SHA-256' },
+      },
+      false,
+      ['sign']
+    );
+
+    const data = this.hexToUint8Array(challenge);
+
+    const signature = await window.crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, data);
+
+    return this.arrayBufferToBase64(signature);
+  }
+
+  arrayBufferToBase64(buffer: ArrayBuffer): string {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return window.btoa(binary);
+  }
+
+  hexToUint8Array(hex: string): Uint8Array {
+    if (hex.length % 2 !== 0) {
+      throw new Error('Invalid hex string');
+    }
+    const array = new Uint8Array(hex.length / 2);
+    for (let i = 0; i < hex.length; i += 2) {
+      array[i / 2] = parseInt(hex.substr(i, 2), 16);
+    }
+    return array;
+  }
+
+  toggleDropdown(): void {
+    this.dropdownOpen = !this.dropdownOpen;
+  }
+
+  closeDropdown(): void {
+    this.dropdownOpen = false;
+  }
+
+  logout(): void {
+    console.log('Logout clicked');
+    this.cookieService.clearAuthCookie();
+    this.isLoggedIn = false;
+    this.streamerId = '';
+    this.dropdownOpen = false;
+    this.showPopup = true; // Show login popup after logout
+    if (this.socket) {
+      this.socket.close();
+    }
+    this.router.navigate(['/']);
   }
 
   private initWebSocket(): void {

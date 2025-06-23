@@ -1,12 +1,57 @@
 <div class="streamer-container">
-  <h2>Streamer: {{ streamerId }}</h2>
+  <header>
+    <div class="profile-section">
+      <button *ngIf="!isLoggedIn" (click)="onProfileClick()">Login</button>
+      <div *ngIf="isLoggedIn" class="dropdown">
+        <button (click)="toggleDropdown()">Profile ({{ streamerId }})</button>
+        <div *ngIf="dropdownOpen" class="dropdown-menu">
+          <button (click)="logout()">Logout</button>
+        </div>
+      </div>
+    </div>
+  </header>
 
-  <video #video autoplay muted playsinline width="640" height="360" style="background: black;"></video>
-
-  <div class="stream-controls">
-    <button (click)="getMediaStream()">Get Media</button>
-    <button (click)="startStreaming()" [disabled]="!mediaStreamAvailable || isStreaming">Start Streaming</button>
+  <!-- Login Popup -->
+  <div *ngIf="showPopup" class="popup">
+    <div class="popup-content">
+      <h2>Login</h2>
+      <form (ngSubmit)="onSubmit()">
+        <div>
+          <label for="username">Username:</label>
+          <input
+            id="username"
+            type="text"
+            [(ngModel)]="userName"
+            name="username"
+            required
+          />
+        </div>
+        <div>
+          <label for="privateKey">Private Key:</label>
+          <input
+            id="privateKey"
+            type="file"
+            (change)="onFileSelected($event)"
+            accept=".pem"
+            required
+          />
+        </div>
+        <button type="submit">Login</button>
+        <button type="button" (click)="closePopup()">Cancel</button>
+      </form>
+    </div>
   </div>
 
-  <p *ngIf="isStreaming">You are now streaming!</p>
+  <!-- Streaming Section -->
+  <div *ngIf="isLoggedIn" class="streaming-controls">
+    <video #video autoplay playsinline muted></video>
+    <div class="controls">
+      <button (click)="getMediaStream()" [disabled]="mediaStreamAvailable">
+        Get Media
+      </button>
+      <button (click)="startStreaming()" [disabled]="isStreaming || !mediaStreamAvailable">
+        Start Streaming
+      </button>
+    </div>
+  </div>
 </div>
