@@ -1,168 +1,149 @@
-import fetch from 'node-fetch'; // This line is needed to import fetch in Node.js
+import fetch from 'node-fetch';
+import axios from 'axios';
+import crypto from 'crypto';
 import { AUTH_SERVER_URL } from '../config/config.js';
-import {connect} from '../service/mongoDBConn.js';
+import { connect } from '../service/mongoDBConn.js';
 
 class ChatRoom {
-    constructor(userId) {
-        // Each ChatRoom is uniquely identified by a userId (the streamer ID)
-        this.userId = userId;
+  constructor(userId) {
+    this.userId = userId; // Streamer ID
+    this.clients = new Set();
+  }
 
-        // Set to keep track of all WebSocket clients in this room
-        this.clients = new Set();
-    }
+  addClient(ws) {
+    ws.on('message', raw => this.handleMessage(ws, raw));
 
+    ws.on('close', () => {
+      this.clients.delete(ws);
+      console.log(`Client disconnected from room ${this.userId}. Clients left: ${this.clients.size}`);
+    });
 
-    // Add WebSocket client to the chat room.
-    // Set up message and disconnect handlers.
-    addClient(ws) {
-        ws.on('message', raw => {
-            this.handleMessage(ws, raw)
-        });
+    this.clients.add(ws);
+    console.log(`Client connected to room ${this.userId}. Total clients: ${this.clients.size}`);
+  }
 
-        ws.on('close', () => {
-            this.clients.delete(ws);
-            console.log(`Client disconnected from room ${this.userId}. Clients left: ${this.clients.size}`);
-        });
+  async handleMessage(ws, raw) {
+    let msg;
 
-        this.clients.add(ws);
-        console.log(`Client connected to room ${this.userId}. Total clients: ${this.clients.size}`);
-    }
-
-
-    //Handle incoming messages.
-    async handleMessage(ws, raw) {
-        let msg;
-
-        // Parse JSON message
-        try {
-            msg = JSON.parse(raw);
-        } catch (e) {
-            return ws.send(JSON.stringify({ error: 'Invalid JSON' }));
-        }
-
-        if (msg.authenticated) {
     try {
-        const timestamp = new Date().toISOString();
+      msg = JSON.parse(raw);
+    } catch (e) {
+      return ws.send(JSON.stringify({ error: 'Invalid JSON' }));
+    }
 
-        const db = await connect();
-        const users = db.collection('User');
+    if (!msg.authenticated) return;
 
-        const result = await users.updateOne(
-            { userName: msg.userName }, // Filter by userName
-            {
-                $push: {
-                    chatMessages: {
-                        messageText: msg.messageText,
-                        timestamp: timestamp,
-                    }
-                }
+    const timestamp = new Date().toISOString();
+
+    // 🔁 Opslaan in MongoDB
+    try {
+      const db = await connect();
+      const users = db.collection('User');
+
+      const result = await users.updateOne(
+        { userName: msg.userName },
+        {
+          $push: {
+            chatMessages: {
+              messageText: msg.messageText,
+              timestamp
             }
-        );
-
-        if (result.matchedCount === 0) {
-            console.log(`No user found with userName: ${msg.userName}`);
-        } else {
-            console.log(`Appended chat message for user ${msg.userName}`);
+          }
         }
+      );
 
+      if (result.matchedCount === 0) {
+        console.log(`No user found with userName: ${msg.userName}`);
+      } else {
+        console.log(`Appended chat message for user ${msg.userName}`);
+      }
     } catch (err) {
-        console.error('Error updating MongoDB chatMessages:', err);
-    }
-} else {
-    return;
-}
-
-
-        console.log(`Handling message in room ${this.userId}:`, msg);
-
-        // if (!msg.name || !msg.publicKey || !msg.signature) {
-        //     console.error("Missing required fields in message:", msg);
-        //         ws.send(JSON.stringify({msg }));
-        //         return ws.close();
-        //     }
-
-
-        // Ensure the user is authenticated before processing messages
-        // if (!ws.user) {
-        //     return ws.send(JSON.stringify({ error: 'Not authenticated' }));
-        // }
-
-        // Validate that the message has text
-        if (!msg.messageText) {
-            return ws.send(JSON.stringify({ error: 'Missing messageText' }));
-        }
-
-        // Build a message object
-        const message = {
-            userName: msg.userName,
-            messageText: msg.messageText,
-            timestamp: new Date().toISOString()
-        };
-
-        // this.logChatEvent(chat).catch(err =>
-        //     console.error("Logging failed:", err.message)
-        // );
-
-        this.broadcast(JSON.stringify(message));
+      console.error('Error updating MongoDB chatMessages:', err);
     }
 
-    //Sends a message to all connected clients in the chat room.
-    broadcast(data) {
-        console.log(`Broadcasting message to room ${this.userId}:`, data);
-        for (const client of this.clients) {
-            // Only send to clients with an open connection
-            if (client.readyState === 1) {
-                client.send(data);
-            }
-        }
+    if (!msg.messageText) {
+      return ws.send(JSON.stringify({ error: 'Missing messageText' }));
     }
 
-    async logChatEvent({ sender, messageText, timestamp }) {
-        const event = {
-        eventType: "message_sent",
-        userId:    sender,               // TruYou‐ID of user‐naam
-        sessionId: this.userId,          // hier gebruik je de ChatRoom.userId als sessie‐ID
-        timestamp,
-        metadata:  { messageText }
-        };
+    const message = {
+      userName: msg.userName,
+      messageText: msg.messageText,
+      timestamp
+    };
 
-        const body = JSON.stringify(event);
-        const ts   = new Date().toISOString();
-        const secret = process.env.HMAC_SECRET;
-        const payload = ts + body;
-        const signature = crypto
-            .createHmac("sha256", secret)
-            .update(payload)
-            .digest("hex");
+    // ✅ Log naar logging-service
+    this.logChatEvent({
+      sender: msg.userName,
+      messageText: msg.messageText,
+      timestamp
+    }).catch(err => {
+      console.error("Logging failed:", err.message);
+    });
 
-        await axios.post(process.env.LOGGING_URL, event, {
-            headers: {
-                "Content-Type": "application/json",
-                "X-Timestamp":   ts,
-                "X-Signature":   signature
-            },
-            timeout: 2000
-        });
-    }    
+    this.broadcast(JSON.stringify(message));
+  }
 
-    // Verify the user's signature with the auth server.
-    async verifyWithAuthServer(name, publicKey, signature) {
-        try {
-            const res = await fetch(`${AUTH_SERVER_URL}/verify`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, publicKey, signature })
-            });
+  broadcast(data) {
+    console.log(`Broadcasting message to room ${this.userId}:`, data);
+    for (const client of this.clients) {
+      if (client.readyState === 1) {
+        client.send(data);
+      }
+    }
+  }
 
-            const result = await res.json();
-            return result.validVerification === true;
-        } catch (err) {
-            console.error('Auth server error:', err);
-            return false;
-        }
+  async logChatEvent({ sender, messageText, timestamp }) {
+    if (!sender || !messageText) {
+      console.warn("⚠️ logChatEvent: Missing sender or messageText");
+      return;
     }
 
-    
+    const event = {
+      eventType: "message_sent",
+      userId: sender,
+      sessionId: this.userId,
+      timestamp,
+      metadata: { messageText: messageText.trim() }
+    };
+
+    const body = JSON.stringify(event);
+    const ts = new Date().toISOString();
+    const secret = process.env.HMAC_SECRET;
+
+    const signature = crypto
+      .createHmac("sha256", secret)
+      .update(ts + body)
+      .digest("hex");
+
+    try {
+      const res = await axios.post(process.env.LOGGING_URL, body, {
+        headers: {
+          "Content-Type": "application/json",
+          "X-Timestamp": ts,
+          "X-Signature": signature
+        },
+        timeout: 2000
+      });
+    } catch (err) {
+      console.error("❌ Failed to send chat log:", err.message);
+    }
+  }
+
+  async verifyWithAuthServer(name, publicKey, signature) {
+    try {
+      const res = await fetch(`${AUTH_SERVER_URL}/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, publicKey, signature })
+      });
+
+      const result = await res.json();
+      return result.validVerification === true;
+    } catch (err) {
+      console.error('Auth server error:', err);
+      return false;
+    }
+  }
 }
 
 export default ChatRoom;

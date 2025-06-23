@@ -44,7 +44,7 @@ export class MediasoupService {
                 this.device
             );
             if (!this.device.rtpCapabilities) {
-                console.error('❌ Failed to load mediasoup Device');
+                console.error('Failed to load mediasoup Device');
                 return;
             }
             console.log('📦 Device loaded successfully');
