@@ -1,3 +1,11 @@
+.stream-player {
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  background-color: black;
+}
+
+
 .content {
     color: #ffffff;
 }

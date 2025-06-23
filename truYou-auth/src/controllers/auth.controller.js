@@ -1,6 +1,5 @@
 const authServices = require('../services/auth.services');
 const logger = require('../utils/logger');
-const handleError = require('../utils/errorHandler');
 
 exports.getChallenge = async (req, res, next) => {
   try {

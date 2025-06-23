@@ -72,3 +72,48 @@
 .popup-content button:hover {
   background-color: #222;     
 }
+
+.right-section {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background-color: white;
+  border: 1px solid #ccc;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  padding: 8px;
+  border-radius: 4px;
+  z-index: 100;
+}
+
+.dropdown-menu button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px 12px;
+  width: 100%;
+  text-align: left;
+}
+
+.dropdown-menu button:hover {
+  background-color: #eee;
+}
+
+.header, .right-section {
+  color: white;
+}
+
+.log-in-button {
+background-color: white;
+  border: 1px solid #ccc;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  padding: 8px;
+  border-radius: 4px;
+  cursor: pointer;
+
+}

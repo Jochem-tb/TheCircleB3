@@ -1,91 +1,109 @@
-import { Injectable } from '@angular/core'
-import { Subject } from 'rxjs'
+import { Injectable } from '@angular/core';
+import { BehaviorSubject, Subject } from 'rxjs';
+import { CookieService } from '../pages/service/cookie.service';
 
 export type ChatMessage = {
-  sender: string
-  messageText: string
-  timestamp: string
-}
+  sender: string;
+  messageText: string;
+  timestamp: string;
+};
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class ChatService {
-  private ws: WebSocket | null = null
-  private messageSubject = new Subject<ChatMessage>()
-  public messages$ = this.messageSubject.asObservable()
 
-  private authenticated = false
+  constructor(
+    private cookieService: CookieService
+  ) {}
+
+  private ws: WebSocket | null = null;
+  private messageSubject = new Subject<ChatMessage>();
+  public messages$ = this.messageSubject.asObservable();
+  private connectionErrorSubject = new BehaviorSubject<string | null>(null);
+  public connectionError$ = this.connectionErrorSubject.asObservable();
+
+  private authenticated = false;
+
+  NgOnInit() {
+    // Authenticate user 
+    this.cookieService.authenticated$.subscribe(auth => {
+      this.authenticated = auth;
+    });
+  }
 
   connect(streamerId: string) {
-    const url = `ws://localhost:8080/?userId=${streamerId}`
-    this.ws = new WebSocket(url)
+    const url = `ws://localhost:8080/?userId=${streamerId}`;
+    this.ws = new WebSocket(url);
 
     this.ws.onopen = () => {
-      console.log('WebSocket connection established')
-    }
+      console.log('✅ WebSocket connection established');
+      this.connectionErrorSubject.next(null);
+    };
 
-    this.ws.onmessage = event => {
+    this.ws.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data)
+        const data = JSON.parse(event.data);
 
-        if (data.status === 'authenticated') {
-          this.authenticated = true
-          console.log('Authenticated as', data.name)
-          return
-        }
+        // if (data.status === 'authenticated') {
+        //   this.authenticated = true;
+        //   console.log('🔐 Authenticated as', data.name);
+        //   return;
+        // }
 
         if (data.error) {
-          console.error('Error from server:', data.error)
-          return
+          console.error('❌ Error from server:', data.error);
+          this.connectionErrorSubject.next('Server error: ' + data.error)
+          return;
         }
 
         this.messageSubject.next({
           sender: data.sender,
           messageText: data.messageText,
-          timestamp: data.timestamp
-        })
+          timestamp: data.timestamp,
+        });
       } catch (err) {
-        console.error('Invalid message format:', err)
+        console.error('❗ Invalid message format:', err);
+        this.connectionErrorSubject.next('Invalid message format received');
       }
-    }
+    };
 
     this.ws.onclose = () => {
-      console.log('WebSocket connection closed')
-      this.authenticated = false
-    }
+      console.log('❎ WebSocket connection closed');
+      this.authenticated = false;
+    };
 
-    this.ws.onerror = err => {
-      console.error('WebSocket error:', err)
-    }
+    this.ws.onerror = (err) => {
+      console.error('💥 WebSocket error:', err);
+      this.connectionErrorSubject.next('WebSocket error occurred');
+    };
   }
 
   authenticate(name: string, publicKey: string, signature: string) {
     if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({
-        type: 'auth',
-        data: { name, publicKey, signature }
-      }))
+      this.ws.send(
+        JSON.stringify({
+          type: 'auth',
+          data: { name, publicKey, signature },
+        })
+      );
     }
   }
 
   sendMessage(messageText: string) {
-    if (!this.authenticated) return
-    this.ws?.send(JSON.stringify({ messageText }))
+    if (!this.authenticated) return;
+    this.ws?.send(JSON.stringify({ messageText }));
+        console.log("message sending")
   }
 
   isAuthenticated(): boolean {
-    return this.authenticated
+    return this.authenticated;
   }
-
 
   disconnect() {
     if (this.ws) {
-      this.ws.close()
-      this.ws = null
+      this.ws.close();
+      this.ws = null;
     }
   }
-
-
-
 }
