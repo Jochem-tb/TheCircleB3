@@ -20,7 +20,7 @@ export class MediasoupService {
     async initStream(streamId: string, videoElement: HTMLVideoElement) {
         // 1️⃣ Connect to Socket.IO
         console.log('🔗 Connecting to mediasoup server...');
-        this.socket = io('http://localhost:8090', {
+        this.socket = io('http://localhost:3002', {
             transports: ['websocket'],
         });
 

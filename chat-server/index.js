@@ -3,6 +3,8 @@ import http from 'http';
 import url from 'url';
 import WebSocket, { WebSocketServer } from 'ws';
 import { getOrCreateChatRoom } from './serverManager.js';
+import dotenv from 'dotenv';
+dotenv.config();
 
 // Create a WebSocket server
 const server = http.createServer();

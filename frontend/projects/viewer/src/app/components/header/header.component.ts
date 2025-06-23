@@ -7,6 +7,7 @@ import { HttpClientModule } from '@angular/common/http';
 import { CookieService } from '../../pages/service/cookie.service';
 import { Subscription } from 'rxjs';
 
+
 @Component({
   selector: 'app-header',
   templateUrl: './header.component.html',

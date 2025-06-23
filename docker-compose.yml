@@ -4,6 +4,18 @@ services:
         ports:
             - "8080:8080"
         restart: always
+        env_file:
+            - .env
+
+    mongo:
+        image: mongo
+        ports:
+            - "27017:27017"
+        restart: always
+        volumes:
+            - mongo-data:/data/db
+
+
 
     frontend-viewer-dev:
         build:
