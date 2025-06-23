@@ -4,7 +4,6 @@ const { verifySignature } = require('./src/utils/verifySignature.js');
 const errorHandler = require('./src/utils/errorHandler.js');
 const logger = require('./src/utils/logger.js');
 const authRoutes = require('./src/routes/auth.routes.js');
-const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 3000;
 
