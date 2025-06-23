@@ -1,13 +1,15 @@
-# streaming-server/Dockerfile
-FROM alfg/nginx-rtmp:latest
+FROM node:20
 
-# Copy your custom nginx.conf
-COPY nginx.conf /etc/nginx/nginx.conf
+RUN apt-get update && apt-get install -y python3 python3-pip make g++ && rm -rf /var/lib/apt/lists/*
 
-# Create data dirs for HLS + recordings
-RUN mkdir -p /var/www/hls /var/www/recordings
+WORKDIR /app
 
-VOLUME [ "/var/www/hls", "/var/www/recordings" ]
+COPY package*.json ./
 
-EXPOSE 1935 80
+RUN npm install
 
+COPY . .
+
+EXPOSE 3002
+
+CMD ["npm", "start"]

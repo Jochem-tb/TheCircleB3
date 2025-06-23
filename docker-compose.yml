@@ -2,8 +2,12 @@ services:
     chat-server:
         build: ./chat-server
         ports:
-            - "8080:8080"
+            - "8081:8081"
         restart: always
+        environment:
+            MONGO_URL: ${MONGODB_URI}
+        env_file:
+            - .env
 
 
 
@@ -19,20 +23,6 @@ services:
         command: npm run start -- --project viewer --host 0.0.0.0 --poll=1000
         environment:
             - CHOKIDAR_USEPOLLING=true
-
-    # # DOESNT WORK
-    # frontend-dev:
-    #     build:
-    #         context: ./frontend
-    #         dockerfile: Dockerfile.dev
-    #     ports:
-    #         - "4200:4200"
-    #     volumes:
-    #         - ./frontend:/app
-    #         - /app/node_modules
-    #     command: npm run start -- --project viewer --host 0.0.0.0 --poll=1000
-    #     environment:
-    #         - CHOKIDAR_USEPOLLING=true
 
     frontend-streamer-dev: # Renamed to clearly indicate it's for development
         build:
@@ -50,17 +40,17 @@ services:
         - CHOKIDAR_USEPOLLING=true # Enable Chokidar polling for better file watching
     
 
-    # DOESNT WORK
-    frontend-streamer:
-        build:
-            context: ./frontend
-            args:
-                APP_NAME: streamer
-        ports:
-            - "4300:80"
-        # depends_on:
-        #   - truYou-auth
-        restart: always
+    # # DOESNT WORK
+    # frontend-streamer:
+    #     build:
+    #         context: ./frontend
+    #         args:
+    #             APP_NAME: streamer
+    #     ports:
+    #         - "4300:80"
+    #     # depends_on:
+    #     #   - truYou-auth
+    #     restart: always
 
     # ingest-server:
     #     build: ./ingest-server
@@ -77,8 +67,8 @@ services:
     # streaming-server:
     #     build: ./streaming-server
     #     ports:
-    #         - "1935:1935" # RTMP ingest
-    #         - "8080:80" # HLS stream
+    #         - "3002:3002" # RTMP ingest
+    #         # - "8080:80" # HLS stream
     #     volumes:
     #         - streaming-hls:/var/www/hls
     #         - streaming-recordings:/var/www/recordings
@@ -113,6 +103,6 @@ services:
 #             MONGO_URI: ${MONGODB_URI} # Adjust log level as needed
 #             PORT: "5200"
 
-# volumes:
-#     streaming-hls:
-#     streaming-recordings:
+volumes:
+    streaming-hls:
+    streaming-recordings:

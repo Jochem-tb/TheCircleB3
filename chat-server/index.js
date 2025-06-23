@@ -33,6 +33,6 @@ wss.on('connection', (ws, req) => {
 });
 
 // Start the server
-server.listen(8080, () => {
-    console.log('Chat master server running on port 8080');
+server.listen(8081, () => {
+    console.log('Chat master server running on port 8081');
 });

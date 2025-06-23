@@ -1,7 +1,7 @@
 console.log('WHIP Client Script Loaded');
 
 const video = document.getElementById('preview');
-const WHIP_ENDPOINT = 'http://localhost:8080'; // jouw ingest server WHIP URL
+const WHIP_ENDPOINT = 'http://localhost:8081'; // jouw ingest server WHIP URL
 
 const pc = new RTCPeerConnection({
   iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
