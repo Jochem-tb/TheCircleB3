@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { HttpClientModule } from '@angular/common/http';
-import { CookieService } from '../../pages/service/cookie.service';
+import { CookieService } from '../app/services/cookie.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -48,61 +48,7 @@ export class HeaderComponent implements OnInit, OnDestroy{
     this.showPopup = true;
   }
 
-  async onSubmit() {
-    if (!this.userName || !this.privateKey) {
-      alert('Please provide username and private key file');
-      return;
-    }
-
-    try {
-      // Step 1: Get challenge and public key from server
-      const resp: any = await this.http
-        .get(`http://localhost:3000/auth/challenge?username=${this.userName}`)
-        .toPromise();
-
-      const { challenge, public_key } = resp;
-
-      // Step 2: Sign the challenge using the private key
-      const signature = await this.signChallenge(challenge, this.privateKey);
-
-      // Step 3: Send signature + username + public_key to authenticate endpoint
-      const payload = {
-        username: this.userName,
-        signature,
-        public_key
-      };
-
-      console.log('Sending authentication payload:', payload);
-
-
-      interface AuthResponse {
-        authenticated: boolean;
-        username: string;
-      }
-      // Then send it
-      const authResp = await this.http
-        .post<AuthResponse>('http://localhost:3000/auth/authenticate', payload)
-        .toPromise();
-
-      console.log('Authentication response:', authResp);
-
-      if (authResp && authResp.authenticated) {
-        this.cookieService.setAuthCookie();
-         this.isLoggedIn = true;
-
-        alert('Authentication successful!');
-      }
-
-      // Clear and close popup
-      this.userName = '';
-      this.showPopup = false;
-    } catch (err) {
-      console.error('Error during authentication:', err);
-      alert('Authentication failed. See console for details.');
-      window.location.reload();
-
-    }
-  }
+  
 
   closePopup() {
     this.showPopup = false;

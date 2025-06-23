@@ -6,6 +6,7 @@ import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { CookieService } from '../../services/cookie.service';
 import { Subscription } from 'rxjs';
 import * as mediasoupClient from 'mediasoup-client';
+import { ChatService, ChatMessage } from '../../services/chat.service';
 
 @Component({
   selector: 'app-streamer',
@@ -15,7 +16,11 @@ import * as mediasoupClient from 'mediasoup-client';
   imports: [CommonModule, FormsModule, HttpClientModule],
 })
 export class StreamerComponent implements OnInit, OnDestroy {
-  @ViewChild('video', { static: true }) videoRef!: ElementRef<HTMLVideoElement>;
+  @ViewChild('video') videoRef!: ElementRef<HTMLVideoElement>;
+
+  messages: ChatMessage[] = [];
+  newMessage: string = '';
+  chatError: string | null = null;
 
   streamerId: string = '';
   userName: string = '';
@@ -38,8 +43,9 @@ export class StreamerComponent implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private router: Router,
     private http: HttpClient,
-    private cookieService: CookieService
-  ) {}
+    private cookieService: CookieService,
+    private chatService: ChatService
+  ) { }
 
   ngOnInit(): void {
     // Subscribe to authentication status
@@ -53,10 +59,23 @@ export class StreamerComponent implements OnInit, OnDestroy {
             const data = JSON.parse(cookie);
             this.streamerId = data.username || this.userName; // Set streamerId to username
             this.initWebSocket();
+            this.chatService.connect(this.streamerId);
+            this.chatService.messages$.subscribe((msg) => {
+              this.messages.push(msg);
+              // Optional: auto scroll chat div (you can implement later)
+            });
+
+            // Subscribe to chat errors
+            this.chatService.connectionError$.subscribe((err) => {
+              this.chatError = err;
+            });
           } catch (e) {
             console.error('Error parsing auth cookie:', e);
           }
         }
+      } else {
+        this.messages = [];
+        this.chatService.disconnect();
       }
     });
 
@@ -65,6 +84,8 @@ export class StreamerComponent implements OnInit, OnDestroy {
     if (!this.isLoggedIn) {
       this.showPopup = true; // Show login popup if not authenticated
     }
+
+
   }
 
   ngOnDestroy(): void {
@@ -74,6 +95,8 @@ export class StreamerComponent implements OnInit, OnDestroy {
     if (this.socket) {
       this.socket.close();
     }
+
+       this.chatService.disconnect();
   }
 
   // Login popup and authentication
@@ -120,7 +143,7 @@ export class StreamerComponent implements OnInit, OnDestroy {
       console.log('Authentication response:', authResp);
 
       if (authResp && authResp.authenticated) {
-        this.cookieService.setAuthCookie();
+        this.cookieService.setAuthCookie(this.userName);
         this.isLoggedIn = true;
         this.streamerId = this.userName; // Set streamerId to authenticated username
         this.initWebSocket(); // Initialize WebSocket after login
@@ -375,4 +398,14 @@ export class StreamerComponent implements OnInit, OnDestroy {
 
     console.log('Send transport ready. Awaiting media.');
   }
+
+  get username(): string {
+    return this.streamerId;
+  }
+    sendChatMessage(): void {
+    if (this.newMessage.trim() === '') return;
+    this.chatService.sendMessage(this.newMessage);
+    this.newMessage = '';
+  }
+
 }
