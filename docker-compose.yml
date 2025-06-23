@@ -83,6 +83,8 @@ services:
       restart: always
       environment:
         MONGO_URL: ${MONGODB_URI}
+      env_file:
+        - .env
 
 #     logging-service:
 #         build: ./logging-service

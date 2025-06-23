@@ -2,7 +2,7 @@
   <div class="chat-log" id="chat-log">
     <div *ngFor="let msg of messages" class="chat-message">
       <span class="timestamp">[{{ msg.timestamp | date:'shortTime' }}]</span>
-      <span class="user">{{ msg.sender }}:</span>
+      <span class="user">{{ msg.userName }}:</span>
       <span class="text">{{ msg.messageText }}</span>
     </div>
   </div>
