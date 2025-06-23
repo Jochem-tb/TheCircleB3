@@ -4,17 +4,19 @@ const { verifySignature } = require('./src/utils/verifySignature.js');
 const errorHandler = require('./src/utils/errorHandler.js');
 const logger = require('./src/utils/logger.js');
 const authRoutes = require('./src/routes/auth.routes.js');
-
+const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 3000;
 
 // Middleware
 app.use(express.json());
-app.use(cors({
-  origin: 'http://localhost:4200', // Pas aan indien frontend elders draait
-}));
+app.use(
+  cors({
+    origin: ['http://localhost:4200', 'http://localhost:4300'], // Allow both origins
+    credentials: true, // Allow cookies to be sent
+  })
+);     
 
-// Routes
 app.post('/verify', (req, res) => {
   const { name, publicKey, signature } = req.body || {};
 

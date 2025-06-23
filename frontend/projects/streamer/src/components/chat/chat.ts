@@ -1,9 +1,8 @@
 import { Component, Input, OnDestroy, OnInit } from '@angular/core'
-import { ChatMessage, ChatService } from '../../services/chat.service'
-import { generateDevIdentity } from '../../utils/dev.auth'
+import { ChatMessage, ChatService } from '../../app/services/chat.service'
 import { FormsModule } from '@angular/forms'
 import { CommonModule } from '@angular/common'
-import { CookieService } from '../../pages/service/cookie.service'
+import { CookieService } from '../../app/services/cookie.service'
 
 
 @Component({
