@@ -1,5 +1,6 @@
 import fetch from 'node-fetch'; // This line is needed to import fetch in Node.js
 import { AUTH_SERVER_URL } from '../config/config.js';
+import {connect} from '../service/mongoDBConn.js';
 
 class ChatRoom {
     constructor(userId) {
@@ -40,10 +41,37 @@ class ChatRoom {
         }
 
         if (msg.authenticated) {
-                        
+    try {
+        const timestamp = new Date().toISOString();
+
+        const db = await connect();
+        const users = db.collection('User');
+
+        const result = await users.updateOne(
+            { userName: msg.userName }, // Filter by userName
+            {
+                $push: {
+                    chatMessages: {
+                        messageText: msg.messageText,
+                        timestamp: timestamp,
+                    }
+                }
+            }
+        );
+
+        if (result.matchedCount === 0) {
+            console.log(`No user found with userName: ${msg.userName}`);
         } else {
-            return;
+            console.log(`Appended chat message for user ${msg.userName}`);
         }
+
+    } catch (err) {
+        console.error('Error updating MongoDB chatMessages:', err);
+    }
+} else {
+    return;
+}
+
 
         console.log(`Handling message in room ${this.userId}:`, msg);
 
@@ -133,6 +161,8 @@ class ChatRoom {
             return false;
         }
     }
+
+    
 }
 
 export default ChatRoom;
