@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // Lees poort uit .env of gebruik 8080 als fallback
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 8081;
 
 // Maak HTTP + WebSocket server
 const server = http.createServer();

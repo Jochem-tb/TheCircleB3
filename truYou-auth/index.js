@@ -6,6 +6,7 @@ const logger = require('./src/utils/logger.js');
 const authRoutes = require('./src/routes/auth.routes.js');
 const app = express();
 const port = process.env.PORT || 3000;
+const cors = require('cors');
 
 // Middleware
 app.use(express.json());

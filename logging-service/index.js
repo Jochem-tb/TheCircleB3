@@ -9,6 +9,9 @@ const Log = require("./models/Log");
 const hmacAuth = require("./middleware/hmacAuth");
 
 const app = express();
+
+const uri = process.env.MONGODB_URI;
+
 app.use(cors());
 
 // MongoDB verbinding
@@ -40,14 +43,6 @@ const rawBodyParser = (req, res, next) => {
   });
 };
 
-// ✅ Test endpoint zonder raw-body
-app.post("/test", express.json(), (req, res) => {
-  console.log("✅ /test endpoint reached!");
-  console.log("Body:", req.body);
-  res.json({ status: "ok", received: req.body });
-});
-
-// ✅ Beveiligd log-endpoint
 app.post("/log", rawBodyParser, hmacAuth, async (req, res) => {
 
   const { eventType, userId, sessionId, timestamp, metadata } = req.body;

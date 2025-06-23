@@ -21,7 +21,7 @@ export class ChatService {
   private authenticated = false;
 
   connect(streamerId: string) {
-    const url = `ws://localhost:8080/?userId=${streamerId}`;
+    const url = `ws://localhost:8081/?userId=${streamerId}`;
     this.ws = new WebSocket(url);
 
     this.ws.onopen = () => {

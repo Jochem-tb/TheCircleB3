@@ -1,8 +1,9 @@
 {
   "name": "streaming-server",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
+    "start": "node src/server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -16,7 +17,10 @@
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "mediasoup": "^3.16.0",
+    "mongo": "^0.1.0",
     "mongodb": "^6.17.0",
+    "mongoos": "^0.0.1-security",
+    "react": "^19.1.0",
     "ws": "^8.18.2"
   }
 }
