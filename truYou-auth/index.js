@@ -7,13 +7,12 @@ const cors = require('cors');
 const app = express();
 
 app.use(express.json());
-app.use(cors({
-  origin: 'http://localhost:4200', 
-}));
-
-app.use(cors({
-  origin: 'http://localhost:4200', 
-}));        
+app.use(
+  cors({
+    origin: ['http://localhost:4200', 'http://localhost:4300'], // Allow both origins
+    credentials: true, // Allow cookies to be sent
+  })
+);     
 
 app.post('/verify', (req, res) => {
     const { name, publicKey, signature } = req.body || {};
