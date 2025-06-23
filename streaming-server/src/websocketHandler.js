@@ -2,6 +2,13 @@ const WebSocket = require('ws');
 const { Room } = require('./room');
 const mediasoupWorker = require('./mediasoupWorker');
 const { logEvent } = require('./logging/logger'); // toevoegen bovenin websocketHandler.js
+const { coinHandlerStart } = require('./helpers');
+const { coinHandlerStop } = require('./helpers');
+
+
+//We use streamer name instead of ID
+
+
 
 // Store rooms globally for the WebSocket server
 const rooms = new Map();
@@ -99,6 +106,12 @@ module.exports.setupWebSocket = (server) => {
             });
 
             ws.send(JSON.stringify({ type: 'produced', id: producer.id }));
+            
+            if(data.kind === 'video'){
+              console.log(`Starting coin handler for ${streamerId}`);
+              await coinHandlerStart(data.streamerId)
+            }
+
             break;
           }
 
@@ -187,13 +200,15 @@ module.exports.setupWebSocket = (server) => {
       if (role === 'streamer' && streamerId) {
         console.log(`Streamer '${streamerId}' disconnected and room removed`);
         
-      await logEvent({
-        eventType: "stream_stop",
-        userId: streamerId,
-        sessionId: streamerId
-      });
+        await logEvent({
+          eventType: "stream_stop",
+          userId: streamerId,
+          sessionId: streamerId
+        });
 
         rooms.delete(streamerId);
+        console.log(`Reached stop`);
+        coinHandlerStop(streamerId)
       }
     });
   });

@@ -10,6 +10,8 @@ const hmacAuth = require("./middleware/hmacAuth");
 
 const app = express();
 
+const uri = process.env.MONGODB_URI;
+
 // Middleware
 app.use(cors());
 
@@ -35,7 +37,7 @@ app.use((req, res, next) => {
 
 // Connectie met MongoDB
 mongoose
-  .connect(process.env.MONGO_URI, {
+  .connect(uri, {
     useNewUrlParser: true,
     useUnifiedTopology: true
   })
