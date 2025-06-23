@@ -15,18 +15,18 @@ module.exports.printRoomList = () => {
 module.exports.coinHandlerStart = async (streamerId) =>{
   const db = await connect();
   console.log('Looking up user with id:', streamerId);
-  const UsersCollection = await db.collection('Users')
-  let streamer = await UsersCollection.findOne({ streamerId });
+  const UsersCollection = await db.collection('User')
+  let streamer = await UsersCollection.findOne({ id: streamerId });
   if(streamer){
     console.log('The streamer: ')
     console.log(streamer)
     
     //Add a coin evry hour
     coinInterval = setInterval(async () => {
-      streamer.coins += 1;
-      UsersCollection.findOneAndUpdate({ streamerId: streamerId }, { "$set": { coins: streamer.coins } })
+      streamer.satoshi += 1;
+      UsersCollection.findOneAndUpdate({ id: streamerId }, { "$set": { satoshi: streamer.satoshi } })
       console.log('Added one coin')
-      console.log(streamer.coins)
+      console.log(streamer.satoshi)
     }, 1000 * 60 * 60)
   }else{
     console.log('streamer not found')
