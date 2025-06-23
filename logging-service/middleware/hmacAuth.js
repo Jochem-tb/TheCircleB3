@@ -9,12 +9,6 @@ function hmacAuth(req, res, next) {
   if (!ts || !sig) {
     return res.status(400).json({ error: "Missing authentication headers" });
   }
-
-  console.log("🔐 Received HMAC headers:");
-  console.log("X-Timestamp:", ts);
-  console.log("X-Signature:", sig);
-  console.log("Raw Body:", req.rawBody);
-
   // 1. Timestamp validatie (±5 min)
   const now = Date.now();
   const then = Date.parse(ts);

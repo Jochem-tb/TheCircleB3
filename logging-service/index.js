@@ -49,21 +49,16 @@ app.post("/test", express.json(), (req, res) => {
 
 // ✅ Beveiligd log-endpoint
 app.post("/log", rawBodyParser, hmacAuth, async (req, res) => {
-  console.log("✔️ Binnen /log endpoint");
-  console.log("Body ontvangen:", req.body);
 
   const { eventType, userId, sessionId, timestamp, metadata } = req.body;
 
   if (!eventType || !userId || !sessionId) {
-    console.warn("⚠️ Missing required fields in /log:", req.body);
     return res.status(400).json({ error: "Missing required fields" });
   }
 
   try {
     const entry = new Log({ eventType, userId, sessionId, timestamp, metadata });
     await entry.save();
-
-    console.debug(`📝 Logged event "${eventType}" for user "${userId}" in session "${sessionId}"`);
     res.json({ status: "logged" });
   } catch (err) {
     console.error("❌ Error saving log entry to MongoDB:", err);
