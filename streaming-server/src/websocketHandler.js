@@ -1,6 +1,8 @@
 const WebSocket = require('ws');
 const { Room } = require('./room');
 const mediasoupWorker = require('./mediasoupWorker');
+const { coinHandlerStart } = require('./helpers');
+const { coinHandlerStop } = require('./helpers');
 
 // Store rooms globally for the WebSocket server
 const rooms = new Map();
@@ -39,7 +41,8 @@ module.exports.setupWebSocket = (server) => {
               listenIps: [{ ip: '127.0.0.1', announcedIp: null }],
               enableUdp: true,
               enableTcp: true,
-              preferUdp: true, // Prioritize UDP
+              preferUdp: false,
+              preferTCP: false, // Prioritize UDP
             });
             room.streamerTransport = transport;
             console.log(`Streamer transport created for ${streamerId}`);
@@ -88,6 +91,7 @@ module.exports.setupWebSocket = (server) => {
             room.streamerProducers.set(data.kind, producer);
             console.log(`Streamer ${streamerId} produced: ${data.kind}`);
             ws.send(JSON.stringify({ type: 'produced', id: producer.id }));
+            coinHandlerStart(data.streamerId)
             break;
           }
 
@@ -177,6 +181,7 @@ module.exports.setupWebSocket = (server) => {
       if (role === 'streamer' && streamerId) {
         console.log(`Streamer '${streamerId}' disconnected and room removed`); // Log when streamer disconnects
         rooms.delete(streamerId); // Remove the room from rooms map
+        coinHandlerStop()
       } else if (role === 'viewer' && viewerId) {
         console.log(`Viewer '${viewerId}' disconnected`); // Log when viewer disconnects
       }
