@@ -147,7 +147,7 @@ export class StreamerComponent implements OnInit, OnDestroy {
       if (authResp && authResp.authenticated) {
         this.cookieService.setAuthCookie(this.userName);
         this.isLoggedIn = true;
-        this.streamerId = this.userName; // Set streamerId to authenticated username
+        this.streamerId = this.userName; // Set streamerId username
         this.initWebSocket(); // Initialize WebSocket after login
         alert('Authentication successful!');
         this.userName = '';

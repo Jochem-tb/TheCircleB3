@@ -54,6 +54,7 @@ app.post("/log", rawBodyParser, hmacAuth, async (req, res) => {
   try {
     const entry = new Log({ eventType, userId, sessionId, timestamp, metadata });
     await entry.save();
+    console.log("📥 Log opgeslagen:", {eventType, userId, sessionId, timestamp, metadata});
     res.json({ status: "logged" });
   } catch (err) {
     console.error("❌ Error saving log entry to MongoDB:", err);

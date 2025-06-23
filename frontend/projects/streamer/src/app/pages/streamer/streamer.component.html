@@ -4,7 +4,7 @@
       <div *ngIf="isLoggedIn" class="dropdown">
         <button (click)="toggleDropdown()">Logged in as: {{ streamerId }}</button>
         <div *ngIf="dropdownOpen" class="dropdown-menu">
-          <button (click)="logout()">Logout</button>
+          <button type="button" (click)="logout()">Logout</button>
         </div>
       </div>
     </div>
