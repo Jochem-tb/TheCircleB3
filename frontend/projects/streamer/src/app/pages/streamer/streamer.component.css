@@ -60,10 +60,22 @@ video {
 
 .controls {
   margin-top: 10px;
+  margin-bottom: 20px;
 }
 
 button {
   padding: 10px 20px;
   margin: 5px;
   cursor: pointer;
+}
+
+.chat-container {
+  width: 100%;
+  max-width: 640px;
+  margin: auto;
+}
+
+.logged-in-text {
+  color: white;
+  margin-bottom: 10px;
 }

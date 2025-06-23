@@ -1,24 +1,18 @@
 <div class="content-grid">
-    <div class="following">
-        following a
+  <div class="following">
+    Following
+  </div>
+
+  <div class="streams-grid">
+    <div
+      *ngFor="let stream of streams.slice(1)"
+      class="stream-thumbnail"
+      (click)="goToStream(stream.streamerId)"
+      tabindex="0"
+      role="button"
+      [attr.aria-label]="'Watch stream by ' + stream.streamerId"
+    >
+      <div class="thumbnail-text">{{ stream.streamerId }}</div>
     </div>
-
-    <div>
-        <div class="mainStream">
-            <video *ngIf="streams.length" id="video" controls autoplay (click)="goToStream(streams[0].id)">
-                <source [src]="streams[0].source" type="application/x-mpegURL" />
-                Your browser does not support HLS.
-            </video>
-        </div>
-
-        <div class="subStreams">
-            <video *ngFor="let stream of streams.slice(1)" id="video" controls autoplay
-                (click)="goToStream(stream.id)">
-                <source [src]="stream.source" type="application/x-mpegURL" />
-                Your browser does not support HLS.
-            </video>
-
-        </div>
-
-    </div>
+  </div>
 </div>
