@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { HttpClientModule } from '@angular/common/http';
-import { CookieService } from '../../pages/service/cookie.service';
+import { CookieService } from '../../services/cookie.service';
 import { Subscription } from 'rxjs';
 
 
@@ -88,7 +88,7 @@ export class HeaderComponent implements OnInit, OnDestroy{
       console.log('Authentication response:', authResp);
 
       if (authResp && authResp.authenticated) {
-        this.cookieService.setAuthCookie();
+        this.cookieService.setAuthCookie(this.userName);
          this.isLoggedIn = true;
 
         alert('Authentication successful!');
@@ -147,14 +147,14 @@ export class HeaderComponent implements OnInit, OnDestroy{
 
     // Import the private key
     const key = await window.crypto.subtle.importKey(
-      "pkcs8",
+      'pkcs8',
       binaryDer.buffer,
       {
-        name: "RSASSA-PKCS1-v1_5",
-        hash: { name: "SHA-256" },
+        name: 'RSASSA-PKCS1-v1_5',
+        hash: { name: 'SHA-256' },
       },
       false,
-      ["sign"]
+      ['sign']
     );
 
     // Encode the challenge string to Uint8Array

@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { BehaviorSubject, Subject } from 'rxjs';
 
 export type ChatMessage = {
-  sender: string;
+  userName: string;
   messageText: string;
   timestamp: string;
 };
@@ -11,6 +11,7 @@ export type ChatMessage = {
   providedIn: 'root',
 })
 export class ChatService {
+
   private ws: WebSocket | null = null;
   private messageSubject = new Subject<ChatMessage>();
   public messages$ = this.messageSubject.asObservable();
@@ -31,12 +32,7 @@ export class ChatService {
     this.ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-
-        if (data.status === 'authenticated') {
-          this.authenticated = true;
-          console.log('🔐 Authenticated as', data.name);
-          return;
-        }
+        console.log('📬 Message received:', data);
 
         if (data.error) {
           console.error('❌ Error from server:', data.error);
@@ -44,8 +40,10 @@ export class ChatService {
           return;
         }
 
+        console.log('📬 Message received chatservice:', data);
+
         this.messageSubject.next({
-          sender: data.sender,
+          userName: data.userName,
           messageText: data.messageText,
           timestamp: data.timestamp,
         });
@@ -66,22 +64,20 @@ export class ChatService {
     };
   }
 
-  authenticate(name: string, publicKey: string, signature: string) {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(
-        JSON.stringify({
-          type: 'auth',
-          data: { name, publicKey, signature },
-        })
-      );
-    }
+  sendMessage(messageJson: any) {
+  if (!messageJson.authenticated) {
+    console.warn("🚫 User is not authenticated. Message not sent.");
+    return;
   }
+  
+  if (this.ws?.readyState === WebSocket.OPEN) {
+    this.ws.send(JSON.stringify(messageJson));
+    console.log("✅ Message sent:", messageJson);
+  } else {
+    console.warn("🚫 WebSocket is not open. Message not sent.");
+  }
+}
 
-  sendMessage(messageText: string) {
-    if (!this.authenticated) return;
-    this.ws?.send(JSON.stringify({ messageText }));
-        console.log("message sending")
-  }
 
   isAuthenticated(): boolean {
     return this.authenticated;

@@ -1,7 +1,6 @@
 import fetch from 'node-fetch'; // This line is needed to import fetch in Node.js
 import { AUTH_SERVER_URL } from '../config/config.js';
-import crypto from 'crypto';
-import axios from 'axios';
+import {connect} from '../service/mongoDBConn.js';
 
 class ChatRoom {
     constructor(userId) {
@@ -16,7 +15,9 @@ class ChatRoom {
     // Add WebSocket client to the chat room.
     // Set up message and disconnect handlers.
     addClient(ws) {
-        ws.on('message', raw => this.handleMessage(ws, raw));
+        ws.on('message', raw => {
+            this.handleMessage(ws, raw)
+        });
 
         ws.on('close', () => {
             this.clients.delete(ws);
@@ -39,37 +40,52 @@ class ChatRoom {
             return ws.send(JSON.stringify({ error: 'Invalid JSON' }));
         }
 
-        // Handle authentication
-        if (msg.type === 'auth') {
-            const { name, publicKey, signature } = msg.data || {};
+        if (msg.authenticated) {
+    try {
+        const timestamp = new Date().toISOString();
 
-            // Ensure required auth fields are present
-            if (!name || !publicKey || !signature) {
-                ws.send(JSON.stringify({ error: 'Missing auth fields' }));
-                return ws.close();
+        const db = await connect();
+        const users = db.collection('User');
+
+        const result = await users.updateOne(
+            { userName: msg.userName }, // Filter by userName
+            {
+                $push: {
+                    chatMessages: {
+                        messageText: msg.messageText,
+                        timestamp: timestamp,
+                    }
+                }
             }
+        );
 
-            console.log(`Authentication request for user: ${name}`);
-            //  Verify the signature with the auth server
-            const validVerification = await this.verifyWithAuthServer(name, publicKey, signature);
-
-            if (validVerification) {
-                console.log(`User ${name} authenticated successfully.`);
-                // Store user info on the socket for later use
-                ws.user = { name, publicKey };
-                ws.send(JSON.stringify({ status: 'authenticated', name }));
-            } else {
-                console.error(`Authentication failed for user: ${name}`);
-                ws.send(JSON.stringify({ error: 'Invalid signature' }));
-                ws.close();
-            }
-            return; // Exit after auth
+        if (result.matchedCount === 0) {
+            console.log(`No user found with userName: ${msg.userName}`);
+        } else {
+            console.log(`Appended chat message for user ${msg.userName}`);
         }
+
+    } catch (err) {
+        console.error('Error updating MongoDB chatMessages:', err);
+    }
+} else {
+    return;
+}
+
+
+        console.log(`Handling message in room ${this.userId}:`, msg);
+
+        // if (!msg.name || !msg.publicKey || !msg.signature) {
+        //     console.error("Missing required fields in message:", msg);
+        //         ws.send(JSON.stringify({msg }));
+        //         return ws.close();
+        //     }
+
 
         // Ensure the user is authenticated before processing messages
-        if (!ws.user) {
-            return ws.send(JSON.stringify({ error: 'Not authenticated' }));
-        }
+        // if (!ws.user) {
+        //     return ws.send(JSON.stringify({ error: 'Not authenticated' }));
+        // }
 
         // Validate that the message has text
         if (!msg.messageText) {
@@ -78,20 +94,21 @@ class ChatRoom {
 
         // Build a message object
         const message = {
-            sender: ws.user.name,
+            userName: msg.userName,
             messageText: msg.messageText,
             timestamp: new Date().toISOString()
         };
 
-        this.logChatEvent(message).catch(err =>
-            console.error("Logging failed:", err.message)
-        );
+        // this.logChatEvent(chat).catch(err =>
+        //     console.error("Logging failed:", err.message)
+        // );
 
         this.broadcast(JSON.stringify(message));
     }
 
     //Sends a message to all connected clients in the chat room.
     broadcast(data) {
+        console.log(`Broadcasting message to room ${this.userId}:`, data);
         for (const client of this.clients) {
             // Only send to clients with an open connection
             if (client.readyState === 1) {
@@ -144,6 +161,8 @@ class ChatRoom {
             return false;
         }
     }
+
+    
 }
 
 export default ChatRoom;

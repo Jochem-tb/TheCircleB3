@@ -20,19 +20,19 @@ services:
         environment:
             - CHOKIDAR_USEPOLLING=true
 
-    # DOESNT WORK
-    frontend-dev:
-        build:
-            context: ./frontend
-            dockerfile: Dockerfile.dev
-        ports:
-            - "4200:4200"
-        volumes:
-            - ./frontend:/app
-            - /app/node_modules
-        command: npm run start -- --project viewer --host 0.0.0.0 --poll=1000
-        environment:
-            - CHOKIDAR_USEPOLLING=true
+    # # DOESNT WORK
+    # frontend-dev:
+    #     build:
+    #         context: ./frontend
+    #         dockerfile: Dockerfile.dev
+    #     ports:
+    #         - "4200:4200"
+    #     volumes:
+    #         - ./frontend:/app
+    #         - /app/node_modules
+    #     command: npm run start -- --project viewer --host 0.0.0.0 --poll=1000
+    #     environment:
+    #         - CHOKIDAR_USEPOLLING=true
 
     frontend-streamer-dev: # Renamed to clearly indicate it's for development
         build:
@@ -62,55 +62,57 @@ services:
         #   - truYou-auth
         restart: always
 
-    ingest-server:
-        build: ./ingest-server
-        ports:
-            - "1935:1935" # RTMP ingest
-            - "8000:8000" # HTTP
-            - "8090:8090" # WHIP
-        restart: always
-        volumes:
-            - ./ingest-server/recordings:/app/recordings
-        # depends_on:
-        #   - streaming-server
+    # ingest-server:
+    #     build: ./ingest-server
+    #     ports:
+    #         - "1935:1935" # RTMP ingest
+    #         - "8000:8000" # HTTP
+    #         - "8090:8090" # WHIP
+    #     restart: always
+    #     volumes:
+    #         - ./ingest-server/recordings:/app/recordings
+    #     # depends_on:
+    #     #   - streaming-server
 
-    streaming-server:
-        build: ./streaming-server
-        ports:
-            - "1935:1935" # RTMP ingest
-            - "8080:80" # HLS stream
-        volumes:
-            - streaming-hls:/var/www/hls
-            - streaming-recordings:/var/www/recordings
-        restart: always
+    # streaming-server:
+    #     build: ./streaming-server
+    #     ports:
+    #         - "1935:1935" # RTMP ingest
+    #         - "8080:80" # HLS stream
+    #     volumes:
+    #         - streaming-hls:/var/www/hls
+    #         - streaming-recordings:/var/www/recordings
+    #     restart: always
 
-    streaming-api:
-        build: ./streaming-api
-        volumes:
-            - streaming-hls:/app/hls # Mount the same HLS folder if needed
-            - streaming-recordings:/app/recordings
-        ports:
-            - "5000:4000"
-        depends_on:
-            - streaming-server
+    # streaming-api:
+    #     build: ./streaming-api
+    #     volumes:
+    #         - streaming-hls:/app/hls # Mount the same HLS folder if needed
+    #         - streaming-recordings:/app/recordings
+    #     ports:
+    #         - "5000:4000"
+    #     depends_on:
+    #         - streaming-server
 
-    # truYou-auth:
-    #   build: ./truYou-auth
-    #   ports:
-    #     - "5000:5000"
-    #   restart: always
-    #   environment:
-    #     MONGO_URL: mongodb://mongo:27017/truyou
+    truyou-auth:
+      build: ./truyou-auth
+      ports:
+        - "3000:3000"
+      restart: always
+      environment:
+        MONGO_URL: ${MONGODB_URI}
+      env_file:
+        - .env
 
-    logging-service:
-        build: ./logging-service
-        ports:
-            - "5200:5200"
-        restart: always
-        environment:
-            MONGO_URI: ${MONGO_URI} # Adjust log level as needed
-            PORT: "5200"
+#     logging-service:
+#         build: ./logging-service
+#         ports:
+#             - "5200:5200"
+#         restart: always
+#         environment:
+#             MONGO_URI: ${MONGODB_URI} # Adjust log level as needed
+#             PORT: "5200"
 
-volumes:
-    streaming-hls:
-    streaming-recordings:
+# volumes:
+#     streaming-hls:
+#     streaming-recordings:

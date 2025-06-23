@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
-import { CookieService } from '../service/cookie.service';
+import { CookieService } from '../../services/cookie.service';
 import { HttpClient } from '@angular/common/http';
 @Component({
   selector: 'app-home',

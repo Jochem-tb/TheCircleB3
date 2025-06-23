@@ -19,9 +19,9 @@ export class CookieService {
   }
 
   // Create cookie
-  setAuthCookie(): void {
+  setAuthCookie(username: string): void {
     const exp = new Date().getTime() + 60 * 60 * 1000; // 1 hour
-    const value = JSON.stringify({ authenticated: true, exp });
+    const value = JSON.stringify({userName: username, authenticated: true, exp });
     document.cookie = `authenticated=${encodeURIComponent(value)}; path=/`;
 
     // Immediately update observable

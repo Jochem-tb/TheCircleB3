@@ -1,6 +1,15 @@
-body, html {
-  margin: 0 !important;
-  padding: 0 !important;
+body{
+
   background-color: #212121;
   font-family: sans-serif;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+html{
+  background-color: rgb(55, 55, 55);
+    font-family: sans-serif;
+    margin: auto;
+
 }

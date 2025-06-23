@@ -53,7 +53,7 @@ export class StreamerComponent implements OnInit, OnDestroy {
       this.isLoggedIn = isAuth;
       if (isAuth) {
         // Retrieve username from cookie or server if needed
-        const cookie = this.cookieService.getCookie('authenticated');
+        const cookie = this.cookieService.getCookie('streamer_auth');
         if (cookie) {
           try {
             const data = JSON.parse(cookie);

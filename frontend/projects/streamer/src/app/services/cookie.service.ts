@@ -22,7 +22,7 @@ export class CookieService {
 setAuthCookie(username: string): void {
   const exp = new Date().getTime() + 60 * 60 * 1000; // 1 hour
   const value = JSON.stringify({ authenticated: true, username, exp });
-  document.cookie = `authenticated=${encodeURIComponent(value)}; path=/`;
+  document.cookie = `streamer_auth=${encodeURIComponent(value)}; path=/`;
 
   this.authSubject.next(true);
 }
@@ -39,14 +39,14 @@ setAuthCookie(username: string): void {
   deleteCookie(name: string): void {
     document.cookie = `${name}=; Max-Age=-1; path=/`;
 
-    if (name === 'authenticated') {
+    if (name === 'streamer_auth') {
       this.authSubject.next(false);
     }
   }
 
   //deletes da cookie without needing to specify name
   clearAuthCookie(): void {
-  document.cookie = 'authenticated=; Max-Age=0; path=/;';
+  document.cookie = 'streamer_auth=; Max-Age=0; path=/;';
   this.authSubject.next(false);
   console.log('Cleared authenticated cookie');
 }
@@ -58,7 +58,7 @@ setAuthCookie(username: string): void {
 
   // Internal method used by both public API and poller
   private internalCheckAuthCookie(): boolean {
-    const cookie = this.getCookie('authenticated');
+    const cookie = this.getCookie('streamer_auth');
     console.log('Checking cookie in service:', cookie);
     if (!cookie) return false;
 
@@ -67,13 +67,13 @@ setAuthCookie(username: string): void {
       const now = new Date().getTime();
 
       if (now > data.exp) {
-        this.deleteCookie('authenticated');
+        this.deleteCookie('streamer_auth');
         return false;
       }
 
       return data.authenticated === true;
     } catch (e) {
-      this.deleteCookie('authenticated');
+      this.deleteCookie('streamer_auth');
       return false;
     }
   }
