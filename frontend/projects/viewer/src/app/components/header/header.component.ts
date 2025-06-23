@@ -87,7 +87,7 @@ export class HeaderComponent implements OnInit, OnDestroy{
       console.log('Authentication response:', authResp);
 
       if (authResp && authResp.authenticated) {
-        this.cookieService.setAuthCookie();
+        this.cookieService.setAuthCookie(this.userName);
          this.isLoggedIn = true;
 
         alert('Authentication successful!');
