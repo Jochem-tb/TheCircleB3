@@ -147,14 +147,14 @@ export class HeaderComponent implements OnInit, OnDestroy{
 
     // Import the private key
     const key = await window.crypto.subtle.importKey(
-      "pkcs8",
+      'pkcs8',
       binaryDer.buffer,
       {
-        name: "RSASSA-PKCS1-v1_5",
-        hash: { name: "SHA-256" },
+        name: 'RSASSA-PKCS1-v1_5',
+        hash: { name: 'SHA-256' },
       },
       false,
-      ["sign"]
+      ['sign']
     );
 
     // Encode the challenge string to Uint8Array

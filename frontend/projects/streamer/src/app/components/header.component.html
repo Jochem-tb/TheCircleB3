@@ -21,18 +21,3 @@
   </ng-template>
 </div>
 
-<!-- Popup overlay -->
-<div class="popup-overlay" *ngIf="showPopup" (click)="closePopup()">
-  <div class="popup-content" (click)="$event.stopPropagation()">
-    <input
-      type="text"
-      [(ngModel)]="userName"
-      placeholder="Username"
-    />
-     <input
-      type="file"
-      (change)="onFileSelected($event)"
-      accept=".pem"
-    />
-  </div>
-</div>
