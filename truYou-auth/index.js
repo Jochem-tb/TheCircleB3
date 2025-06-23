@@ -12,7 +12,7 @@ const port = process.env.PORT || 3000;
 app.use(express.json());
 app.use(
   cors({
-    origin: ['http://localhost:4200', 'http://localhost:4300'], // Allow both origins
+    origin: "*", // Allow both origins
     credentials: true, // Allow cookies to be sent
   })
 );     
