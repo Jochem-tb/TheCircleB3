@@ -6,6 +6,8 @@
   <div class="stream-controls">
     <button (click)="getMediaStream()">Get Media</button>
     <button (click)="startStreaming()" [disabled]="!mediaStreamAvailable || isStreaming">Start Streaming</button>
+    <button (click)="toggleVideo()">Toggle Video</button>
+    <button (click)="toggleAudio()">Toggle Audio</button>
   </div>
 
   <p *ngIf="isStreaming">You are now streaming!</p>
