@@ -29,3 +29,5 @@ app.get('/streams/active', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Streaming API running on http://localhost:${PORT}`);
 });
+
+module.exports = app;
