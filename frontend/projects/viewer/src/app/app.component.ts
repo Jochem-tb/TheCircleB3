@@ -1,7 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { HeaderComponent } from './components/header/header.component';
-import { StreamListComponent } from './pages/home/stream-list.component';
 
 @Component({
   selector: 'app-root',
@@ -9,7 +8,6 @@ import { StreamListComponent } from './pages/home/stream-list.component';
   imports: [
     RouterOutlet,
     HeaderComponent,
-    StreamListComponent
   ],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css'],
