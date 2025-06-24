@@ -1,14 +1,4 @@
-<h2>Live Stream: streamer1</h2>
-
-<video id="video" controls autoplay style="width: 100%; max-width: 800px">
-    <source
-        src="http://localhost:8080/live/streamer1/index.m3u8"
-        type="application/x-mpegURL"
-    />
-    Your browser does not support HLS.
-</video>
-
-<p>
-    Open OBS and stream to:
-    <code>rtmp://localhost:1935/live/streamer1</code>
-</p>
+<app-header></app-header>
+<div class="content retro-content px-3 py-2">
+    <router-outlet></router-outlet>
+</div>

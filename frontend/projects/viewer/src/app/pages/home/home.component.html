@@ -1,0 +1,59 @@
+<div class="home retro-home vh-100 d-flex flex-column align-items-center">
+    <header class="retro-header-small w-100">
+        <h2>Live Streams</h2>
+    </header>
+
+    <main class="flex-fill overflow-auto w-100 px-4 py-3">
+        <div
+            class="streams-grid-container"
+            [ngClass]="{ 'single-stream': streams.length === 1 }"
+        >
+            <div
+                *ngFor="let stream of streams"
+                class="stream-card"
+                (click)="goToStream(stream.streamerId)"
+                tabindex="0"
+                role="button"
+                [attr.aria-label]="'Watch stream by ' + stream.streamerId"
+            >
+                <img
+                    [src]="getRandomImage()"
+                    alt="Stream thumbnail"
+                    class="stream-image"
+                />
+                <div class="card-overlay">
+                    <div class="stream-info">
+                        <h5 class="stream-title">{{ stream.streamerId }}</h5>
+                        <p class="stream-details">
+                            <span
+                                class="stream-description"
+                                *ngIf="
+                                    stream.viewerCount != null;
+                                    else unknownViewers
+                                "
+                                >👁️ Viewers: {{ stream.viewerCount }}</span
+                            >
+                            <ng-template #unknownViewers
+                                >👁️ Viewers: ?</ng-template
+                            >
+                            <span
+                                class="stream-description"
+                                *ngIf="
+                                    stream.startTime != null;
+                                    else unknownTime
+                                "
+                                >🕒Start time:
+                                {{
+                                    stream.startTime | date : "shortTime"
+                                }}</span
+                            >
+                            <ng-template #unknownTime
+                                >🕒 Start time: unknown</ng-template
+                            >
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>

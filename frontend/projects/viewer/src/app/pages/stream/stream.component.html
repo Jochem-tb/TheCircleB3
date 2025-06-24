@@ -1,0 +1,31 @@
+<div class="retro-stream-wrapper">
+    <div class="stream-layout">
+        <!-- Stream Column -->
+        <div class="stream-main">
+            <video
+                #video
+                autoplay
+                playsinline
+                muted
+                controls
+                class="stream-video"
+            ></video>
+
+            <div class="streamer-header">
+                <h1>Streamer: {{ streamerId }}</h1>
+            </div>
+
+            <div class="stream-description-box">
+                <p>
+                    This is a stream description, here you can place your own
+                    text. VERY SOON!!
+                </p>
+            </div>
+        </div>
+
+        <!-- Chat Column -->
+        <div class="chat-panel">
+            <app-chat [streamerId]="streamerId"></app-chat>
+        </div>
+    </div>
+</div>

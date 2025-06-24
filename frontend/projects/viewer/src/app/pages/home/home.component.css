@@ -1,0 +1,93 @@
+.retro-home {
+    background: #0a0a0a;
+    font-family: "Press Start 2P", monospace;
+    color: #66d9ff;
+}
+
+.retro-header-small {
+    padding: 12px;
+    text-align: center;
+    background: #1a1a1a;
+    border-bottom: 2px solid #66d9ff;
+}
+
+.streams-grid-container {
+    width: calc(100% - 600px);
+    align-items: center;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+}
+
+/* When there's only one stream, center it */
+.single-stream {
+    display: flex !important;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+}
+
+.stream-card {
+    margin-top: 50px;
+    position: relative;
+    border: 2px solid #66d9ff;
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    box-shadow: 0 0 8px #66d9ff;
+    transition: transform 0.3s, box-shadow 0.3s;
+    background: #1a1a1a;
+    display: flex;
+    flex-direction: column;
+}
+
+.stream-card:hover,
+.stream-card:focus {
+    transform: scale(1.05);
+    box-shadow: 0 0 16px #66d9ff;
+}
+
+.stream-image {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.card-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 12px;
+}
+
+.stream-info {
+    color: #66d9ff;
+}
+
+.stream-title {
+    margin: 0;
+    margin-bottom: 10px;
+    font-size: 1.4rem;
+    text-shadow: 0 0 4px #000;
+}
+
+.stream-details {
+    margin-top: 4px;
+    font-size: 0.75rem;
+    display: flex;
+    justify-content: space-between;
+}
+
+.stream-description {
+    margin-top: 8px;
+    font-size: 1rem;
+}
+
+.stream-card-title {
+    font-size: 1.2rem;
+    color: #66d9ff;
+    margin: 0;
+}

@@ -1,30 +1,35 @@
-import express from "express";
-import * as ws from "ws";
-import http from "http";
-const app = express();
-const server = http.createServer(app);
-const wss = new ws.WebSocketServer({ server });
+import http from 'http';
+import url from 'url';
+import WebSocket, { WebSocketServer } from 'ws';
+import { getOrCreateChatRoom } from './serverManager.js';
+import dotenv from 'dotenv';
+dotenv.config();
 
-wss.on("connection", function connection(ws, req) {
-    const streamId = new URL(
-        req.url,
-        `http://${req.headers.host}`
-    ).pathname.slice(1);
+// Lees poort uit .env of gebruik 8080 als fallback
+const PORT = process.env.PORT || 8081;
 
-    if (!chatRooms[streamId]) chatRooms[streamId] = new Set();
-    chatRooms[streamId].add(ws);
+// Maak HTTP + WebSocket server
+const server = http.createServer();
+const wss = new WebSocketServer({ server });
 
-    ws.on("message", function incoming(message) {
-        for (const client of chatRooms[streamId]) {
-            if (client.readyState === WebSocket.OPEN) {
-                client.send(message);
-            }
-        }
-    });
+wss.on('connection', (ws, req) => {
+    console.log('New connection request:', req.url);
 
-    ws.on("close", () => chatRooms[streamId].delete(ws));
+    const { query } = url.parse(req.url, true);
+    const { userId } = query;
+
+    if (!userId) {
+        console.log('Connection rejected: Missing userId');
+        ws.send(JSON.stringify({ error: 'Missing userId in query string' }));
+        ws.close();
+        return;
+    }
+
+    console.log(`Client connecting to chat room for userId: ${userId}`);
+    const chatRoom = getOrCreateChatRoom(userId);
+    chatRoom.addClient(ws);
 });
 
-app.listen(3000, () => {
-    console.log("Chat server is running on port 3000");
+server.listen(PORT, () => {
+    console.log(`Chat master server running on port ${PORT}`);
 });

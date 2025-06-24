@@ -1,32 +1,86 @@
-const fs = require("fs");
-const path = require("path");
+require("dotenv").config();
 
-class Logger {
-    constructor(logFilePath = "app.log") {
-        this.logFilePath = path.resolve(logFilePath);
-    }
+const express = require("express");
+const cors = require("cors");
+const mongoose = require("mongoose");
+const getRawBody = require("raw-body");
 
-    log(level, message) {
-        const timestamp = new Date().toISOString();
-        const logEntry = `[${timestamp}] [${level.toUpperCase()}] ${message}\n`;
-        fs.appendFile(this.logFilePath, logEntry, (err) => {
-            if (err) {
-                console.error("Failed to write log:", err);
+const Log = require("./models/Log");
+const hmacAuth = require("./middleware/hmacAuth");
+
+const app = express();
+
+const uri = process.env.MONGODB_URI;
+
+app.use(cors());
+
+// MongoDB verbinding
+mongoose
+    .connect(uri)
+    .then(() => console.log("✅ Connected to MongoDB"))
+    .catch((err) => {
+        console.error("❌ Failed to connect to MongoDB:", err);
+        process.exit(1);
+    });
+
+// 🔁 Alleen raw body verwerken voor /log route
+const rawBodyParser = (req, res, next) => {
+    getRawBody(
+        req,
+        {
+            length: req.headers["content-length"],
+            limit: "1mb",
+            encoding: true,
+        },
+        (err, string) => {
+            if (err) return next(err);
+            req.rawBody = string;
+
+            try {
+                req.body = JSON.parse(string);
+            } catch (parseError) {
+                return res
+                    .status(400)
+                    .json({ error: "Invalid JSON in request body" });
             }
+
+            next();
+        }
+    );
+};
+
+app.post("/log", rawBodyParser, hmacAuth, async (req, res) => {
+    const { eventType, userId, sessionId, timestamp, metadata } = req.body;
+
+    if (!eventType || !userId || !sessionId) {
+        return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    try {
+        const entry = new Log({
+            eventType,
+            userId,
+            sessionId,
+            timestamp,
+            metadata,
         });
+        await entry.save();
+        console.log("📥 Log opgeslagen:", {
+            eventType,
+            userId,
+            sessionId,
+            timestamp,
+            metadata,
+        });
+        res.json({ status: "logged" });
+    } catch (err) {
+        console.error("❌ Error saving log entry to MongoDB:", err);
+        res.status(500).json({ error: "Internal Server Error" });
     }
+});
 
-    info(message) {
-        this.log("info", message);
-    }
-
-    warn(message) {
-        this.log("warn", message);
-    }
-
-    error(message) {
-        this.log("error", message);
-    }
-}
-
-module.exports = new Logger();
+// Start server
+const PORT = process.env.PORT || 5200;
+app.listen(PORT, () => {
+    console.log(`🚀 Logging API listening on port ${PORT}`);
+});

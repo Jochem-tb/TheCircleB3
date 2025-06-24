@@ -1,1 +1,15 @@
-/* You can add global styles to this file, and also import other style files */
+body{
+
+  background-color: #212121;
+  font-family: sans-serif;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+html{
+  background-color: rgb(55, 55, 55);
+    font-family: sans-serif;
+    margin: auto;
+
+}

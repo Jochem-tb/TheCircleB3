@@ -1,0 +1,108 @@
+.retro-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    background: #0d0d0d;
+    box-shadow: 0 0 10px #00ffea, inset 0 0 5px #00ffea;
+    font-family: "Press Start 2P", monospace;
+    color: #00ffea;
+}
+
+.left-image {
+    height: 60px;
+    width: 60px;
+    border-radius: 50%;
+    border: 2px solid #00ffea;
+    transition: transform 0.2s;
+}
+
+.left-image:hover {
+    transform: scale(1.1);
+}
+
+.right-section {
+    position: relative;
+}
+
+.retro-button {
+    background: #0d0d0d;
+    border: 2px solid #00ffea;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: "Press Start 2P", monospace;
+    color: #00ffea;
+    text-transform: uppercase;
+    transition: background 0.3s, box-shadow 0.3s;
+}
+
+.retro-button:hover {
+    background: rgba(0, 255, 234, 0.1);
+    box-shadow: 0 0 8px #00ffea;
+}
+
+.dropdown-menu {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    background: #1a1a1a;
+    border: 1px solid #00ffea;
+    box-shadow: 0 0 8px #00ffea;
+    border-radius: 4px;
+    z-index: 100;
+    font-family: "Press Start 2P", monospace;
+}
+
+.dropdown-item {
+    display: block;
+    width: 100%;
+    padding: 8px 12px;
+    background: none;
+    border: none;
+    text-align: left;
+    color: #00ffea;
+    cursor: pointer;
+}
+
+.dropdown-item:hover {
+    background: rgba(0, 255, 234, 0.1);
+}
+
+.popup-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.popup-content {
+    background: #1a1a1a;
+    padding: 24px;
+    border: 2px solid #00ffea;
+    border-radius: 8px;
+    box-shadow: 0 0 12px #00ffea;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.retro-input {
+    background: #0d0d0d;
+    color: #00ffea;
+    border: 2px solid #00ffea;
+    border-radius: 4px;
+    padding: 8px;
+    font-family: "Press Start 2P", monospace;
+}
+
+.file-input {
+    cursor: pointer;
+}
+
+.submit-button {
+    align-self: flex-end;
+}

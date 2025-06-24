@@ -1,0 +1,144 @@
+<div class="retro-streamer-container">
+    <!-- Header / Profile -->
+    <header class="retro-header">
+        <div class="profile-section">
+            <ng-container *ngIf="isLoggedIn; else loginButton">
+                <button class="retro-button" (click)="toggleDropdown()">
+                    Logged in as: {{ streamerId }} ▼
+                </button>
+                <div *ngIf="dropdownOpen" class="dropdown-menu">
+                    <button class="dropdown-item" (click)="logout()">
+                        Logout
+                    </button>
+                </div>
+            </ng-container>
+            <ng-template #loginButton>
+                <button class="retro-button" (click)="showPopup = true">
+                    Log In
+                </button>
+            </ng-template>
+        </div>
+    </header>
+
+    <!-- Login Popup -->
+    <div *ngIf="showPopup" class="popup-overlay" (click)="closePopup()">
+        <div class="popup-content" (click)="$event.stopPropagation()">
+            <h2>Login</h2>
+            <form (ngSubmit)="onSubmit()">
+                <label>
+                    Username:
+                    <input
+                        type="text"
+                        [(ngModel)]="userName"
+                        name="username"
+                        required
+                        class="retro-input"
+                    />
+                </label>
+                <label>
+                    Private Key:
+                    <input
+                        type="file"
+                        (change)="onFileSelected($event)"
+                        accept=".pem"
+                        required
+                        class="retro-input"
+                    />
+                </label>
+                <div class="popup-buttons">
+                    <button type="submit" class="retro-button submit-button">
+                        Login
+                    </button>
+                    <button
+                        type="button"
+                        class="retro-button cancel-button"
+                        (click)="closePopup()"
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Streaming Controls & Video -->
+    <div *ngIf="isLoggedIn" class="streaming-section">
+        <div class="stream-info">
+            <img
+                src="../../../assets/followers.png"
+                alt="Followers Icon"
+                class="follower-icon"
+            />
+            <span class="follower-label">Followers:</span>
+            <span class="follower-number">{{ followerCount }}</span>
+            <!-- Video status -->
+            <span
+                class="status-indicator video-status"
+                [class.off]="!isVideoOn"
+            >
+                🎥 {{ isVideoOn ? "On" : "Off" }}
+            </span>
+
+            <!-- Audio status -->
+            <span
+                class="status-indicator audio-status"
+                [class.off]="!isAudioOn"
+            >
+                🎙️ {{ isAudioOn ? "On" : "Off" }}
+            </span>
+        </div>
+
+        <video #video autoplay playsinline muted class="stream-video"></video>
+
+        <div class="controls">
+            <button
+                class="retro-button"
+                (click)="getMediaStream()"
+                [disabled]="mediaStreamAvailable"
+            >
+                Get Media
+            </button>
+            <button
+                class="retro-button"
+                (click)="isStreaming ? stopStreaming() : startStreaming()"
+                [disabled]="!mediaStreamAvailable"
+            >
+                {{ isStreaming ? "Stop" : "Start" }}
+            </button>
+            <button class="retro-button" (click)="toggleVideo()">
+                Toggle Video
+            </button>
+            <button class="retro-button" (click)="toggleAudio()">
+                Toggle Audio
+            </button>
+        </div>
+
+        <!-- Embedded Chat -->
+        <div class="chat-container">
+            <div class="chat-panel">
+                <div class="chat-log" id="chat-log" #chatLog>
+                    <div *ngFor="let msg of messages" class="chat-message">
+                        <span class="timestamp"
+                            >[{{ msg.timestamp | date : "shortTime" }}]</span
+                        >
+                        <strong>{{ msg.userName }}:</strong>
+                        <span>{{ msg.messageText }}</span>
+                    </div>
+                </div>
+
+                <div *ngIf="isLoggedIn" class="chat-input">
+                    <input
+                        type="text"
+                        [(ngModel)]="newMessage"
+                        (keyup.enter)="sendChatMessage()"
+                        placeholder="Type a message"
+                        aria-label="Chat message"
+                    />
+                    <button (click)="sendChatMessage()">Send</button>
+                </div>
+
+                <div *ngIf="chatError" class="chat-error">{{ chatError }}</div>
+            </div>
+        </div>
+    </div>
+</div>

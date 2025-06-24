@@ -1,0 +1,34 @@
+<div class="chat-container">
+    <div class="chat-log" #chatLog>
+        <div
+            *ngFor="let msg of messages"
+            class="chat-message"
+            [ngClass]="{ 'own-message': msg.userName === currentUser }"
+        >
+            <span class="timestamp"
+                >[{{ msg.timestamp | date:'shortTime' }}]</span
+            >
+            <span class="user">{{ msg.userName }}:</span>
+            <span class="text">{{ msg.messageText }}</span>
+        </div>
+    </div>
+    <div class="chat-input-container">
+        <div class="chat-input" *ngIf="authenticated">
+            <input
+                type="text"
+                [(ngModel)]="newMessage"
+                (keyup.enter)="sendMessage()"
+                placeholder="Type a message"
+                class="message-input"
+                aria-label="Chat message"
+            />
+            <button (click)="sendMessage()">Send</button>
+        </div>
+
+        <div *ngIf="!authenticated" class="unauth-message">
+            <h3>Log in to chat</h3>
+        </div>
+
+        <div *ngIf="errorMessage" class="chat-error">{{ errorMessage }}</div>
+    </div>
+</div>
