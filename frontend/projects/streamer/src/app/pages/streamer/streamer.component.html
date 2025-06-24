@@ -43,6 +43,11 @@
 
   <!-- Streaming Section -->
   <div *ngIf="isLoggedIn" class="streaming-controls">
+    <div class="follower-count">
+      <img src="../../../assets/followers.png" alt="Followers Icon" class="follower-icon" />
+      <span class="follower-label">Followers:</span>
+      <span class="follower-number">{{ followerCount }}</span>
+    </div>
     <video #video autoplay playsinline muted></video>
     <div class="controls">
       <button (click)="getMediaStream()" [disabled]="mediaStreamAvailable">

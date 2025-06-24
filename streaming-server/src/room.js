@@ -5,6 +5,7 @@ class Room {
     this.streamerTransport = null; // WebRTC transport for the streamer's media
     this.streamerProducers = new Map(); // Maps media type (audio/video) to their producers
     this.viewers = new Map();      // Maps viewer IDs to their transport and media consumers
+    this.viewerCount = 0;
   }
 
   // Add a producer (video or audio) to the room
@@ -45,6 +46,15 @@ class Room {
     }
     this.viewers.delete(viewerId);
     console.log(`Viewer '${viewerId}' removed from the room for streamer ${this.streamerId}`);
+  }
+
+  updateViewerCount(broadcastFn) {
+    this.viewerCount = this.viewers.size;
+    const message = {
+      type: 'follower-count-update',
+      count: this.viewerCount
+    };
+    if (broadcastFn) broadcastFn(message);
   }
 }
 

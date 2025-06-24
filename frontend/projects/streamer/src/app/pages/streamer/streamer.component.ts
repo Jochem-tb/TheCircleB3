@@ -40,6 +40,8 @@ export class StreamerComponent implements OnInit, OnDestroy {
   mediaStreamAvailable = false;
   roomCreated = false;
   deviceLoaded = false;
+  followerCount: number = 0;
+
 
   constructor(
     private route: ActivatedRoute,
@@ -49,46 +51,48 @@ export class StreamerComponent implements OnInit, OnDestroy {
     private chatService: ChatService
   ) { }
 
-  ngOnInit(): void {
-    // Subscribe to authentication status
-    this.authSubscription = this.cookieService.authenticated$.subscribe((isAuth) => {
-      this.isLoggedIn = isAuth;
-      if (isAuth) {
-        // Retrieve username from cookie or server if needed
-        const cookie = this.cookieService.getCookie('streamer_auth');
-        if (cookie) {
-          try {
-            const data = JSON.parse(cookie);
-            this.streamerId = data.username || this.userName; // Set streamerId to username
-            this.initWebSocket();
-            this.chatService.connect(this.streamerId);
-            this.chatService.messages$.subscribe((msg) => {
-              this.messages.push(msg);
-              // Optional: auto scroll chat div (you can implement later)
-            });
+ngOnInit(): void {
+  // Subscribe to authentication status
+  this.authSubscription = this.cookieService.authenticated$.subscribe((isAuth) => {
+    this.isLoggedIn = isAuth;
+    if (isAuth) {
+      const cookie = this.cookieService.getCookie('streamer_auth');
+      if (cookie) {
+        try {
+          const data = JSON.parse(cookie);
+          this.streamerId = data.username || this.userName;
+          this.initWebSocket();
+          this.chatService.connect(this.streamerId);
+          this.chatService.messages$.subscribe((msg) => {
+            this.messages.push(msg);
+          });
 
-            // Subscribe to chat errors
-            this.chatService.connectionError$.subscribe((err) => {
-              this.chatError = err;
-            });
-          } catch (e) {
-            console.error('Error parsing auth cookie:', e);
-          }
+          this.chatService.connectionError$.subscribe((err) => {
+            this.chatError = err;
+          });
+        } catch (e) {
+          console.error('Error parsing auth cookie:', e);
         }
-      } else {
-        this.messages = [];
-        this.chatService.disconnect();
       }
-    });
-
-    // Check initial auth status
-    this.isLoggedIn = this.cookieService.checkAuthCookie();
-    if (!this.isLoggedIn) {
-      this.showPopup = true; // Show login popup if not authenticated
+    } else {
+      this.messages = [];
+      this.chatService.disconnect();
     }
+  });
 
-
+  // Check initial auth status
+  this.isLoggedIn = this.cookieService.checkAuthCookie();
+  if (!this.isLoggedIn) {
+    this.showPopup = true;
   }
+
+  // followercount elke 60 seconden
+  setInterval(() => {
+    if (this.isLoggedIn && this.socket?.readyState === WebSocket.OPEN) {
+      this.send({ type: 'get-follower-count', streamerId: this.streamerId });
+    }
+  }, 60000); // 60 seconden
+}
 
   ngOnDestroy(): void {
     if (this.authSubscription) {
@@ -293,7 +297,12 @@ export class StreamerComponent implements OnInit, OnDestroy {
         case 'produced':
           console.log('Stream produced, ID:', message.id);
           break;
-
+        
+          case 'follower-count-update':
+          this.followerCount = message.count;
+          console.log('Follower count updated:', this.followerCount);
+          break;
+          
         default:
           console.warn('Unknown message type:', message.type);
       }
