@@ -41,6 +41,16 @@ module.exports.setupWebSocket = (server) => {
             };
 
             rooms.set(streamerId, room);
+
+            // Notify all clients a new stream started
+            wss.clients.forEach(client => {
+              if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify({
+                  type: 'stream-started',
+                  streamerId: streamerId
+                }));
+              }
+            });
             ws.role = 'streamer';
             ws.streamerId = streamerId;
             console.log(`Room created for streamer: ${streamerId}`);
@@ -231,12 +241,25 @@ module.exports.setupWebSocket = (server) => {
     });
 
     ws.on('close', async () => {
+
+      // let clients know stream is closed
+      wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify({
+            type: 'stream-stopped',
+            streamerId: streamerId
+          }));
+        }
+      });
+
+
       if (role === 'streamer' && streamerId && room?.hasLoggedStart) {
         await logEvent({
           eventType: "stream_stop",
           userId: streamerId,
           sessionId: streamerId
         });
+
         console.log(`Streamer '${streamerId}' disconnected and room removed`);
         rooms.delete(streamerId);
       } else if (role === 'viewer' && viewerId) {
