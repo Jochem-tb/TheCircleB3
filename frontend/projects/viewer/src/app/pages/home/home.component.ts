@@ -14,19 +14,21 @@ export class HomeComponent implements OnInit {
   constructor(
     private router: Router,
     private cookieService: CookieService,
-    private http: HttpClient
+    private http: HttpClient,
+
   ) { }
 
 
   streams: { streamerId: string }[] = [];
   loading = true;
   errorMessage = '';
-
+  private ws: WebSocket | null = null;
 
 
   ngOnInit(): void {
     this.fetchStreams();
     this.cookieService.checkAuthCookie();
+    this.connectWebSocket();
   }
 
   goToStream(streamId: string) {
@@ -61,5 +63,32 @@ export class HomeComponent implements OnInit {
       });
   }
 
+  connectWebSocket(): void {
+  this.ws = new WebSocket('ws://localhost:3002');
 
+  this.ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+
+    switch (data.type) {
+      case 'stream-started':
+        this.streams.push({ streamerId: data.streamerId });
+        break;
+
+      case 'stream-stopped':
+        this.streams = this.streams.filter(stream => stream.streamerId !== data.streamerId);
+        break;
+    }
+  };
+
+    this.ws.onclose = () => {
+    console.warn('WebSocket closed. Attempting to reconnect in 3 seconds...');
+    setTimeout(() => this.connectWebSocket(), 3000); // Try reconnecting
+  };
+
+  this.ws.onerror = (err) => {
+    console.error('WebSocket error:', err);
+  };
+
+
+}
 }
