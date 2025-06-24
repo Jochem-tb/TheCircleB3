@@ -394,6 +394,8 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
             console.log('Video track:', this.videoTrack);
             console.log('Audio track:', this.audioTrack);
+            this.isAudioOn = this.audioTrack?.enabled ?? false;
+            this.isVideoOn = this.videoTrack?.enabled ?? false;
         } catch (err) {
             console.error('Failed to get media stream:', err);
         }
