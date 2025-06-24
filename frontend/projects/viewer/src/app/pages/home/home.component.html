@@ -25,15 +25,29 @@
                     <div class="stream-info">
                         <h5 class="stream-title">{{ stream.streamerId }}</h5>
                         <p class="stream-details">
-                            <span>👁️ 10</span>
-                            <span>🕒 10:30 </span>
-                            <!-- <span>👁️ {{ stream.viewerCount }}</span> -->
-                            <!-- <span
-                                >🕒
+                            <span
+                                class="stream-description"
+                                *ngIf="
+                                    stream.viewerCount != null;
+                                    else unknownViewers
+                                "
+                                >👁️ Viewers {{ stream.viewerCount }}</span
+                            >
+                            <ng-template #unknownViewers>?</ng-template>
+                            <span
+                                class="stream-description"
+                                *ngIf="
+                                    stream.startTime != null;
+                                    else unknownTime
+                                "
+                                >🕒Start time:
                                 {{
                                     stream.startTime | date : "shortTime"
                                 }}</span
-                            > -->
+                            >
+                            <ng-template #unknownTime
+                                >🕒 Start time: unknown</ng-template
+                            >
                         </p>
                     </div>
                 </div>

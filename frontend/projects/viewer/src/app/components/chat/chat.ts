@@ -1,4 +1,12 @@
-import { Component, Input, OnDestroy, OnInit } from '@angular/core';
+import {
+    AfterViewChecked,
+    Component,
+    ElementRef,
+    Input,
+    OnDestroy,
+    OnInit,
+    ViewChild,
+} from '@angular/core';
 import { ChatMessage, ChatService } from '../../services/chat.service';
 import { generateDevIdentity } from '../../utils/dev.auth';
 import { FormsModule } from '@angular/forms';
@@ -13,8 +21,9 @@ import { timestamp } from 'rxjs';
     imports: [CommonModule, FormsModule],
     standalone: true,
 })
-export class ChatComponent implements OnInit, OnDestroy {
+export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
     @Input() streamerId!: string;
+    @ViewChild('chatLog') private chatLog!: ElementRef<HTMLElement>;
 
     messages: ChatMessage[] = [];
     currentUser: string = 'john';
@@ -26,6 +35,10 @@ export class ChatComponent implements OnInit, OnDestroy {
         private chatService: ChatService,
         private cookieService: CookieService
     ) {}
+
+    ngAfterViewChecked() {
+        this.scrollToBottom();
+    }
 
     async ngOnInit() {
         if (!this.streamerId) {
@@ -75,5 +88,14 @@ export class ChatComponent implements OnInit, OnDestroy {
 
     ngOnDestroy() {
         this.chatService.disconnect();
+    }
+
+    private scrollToBottom(): void {
+        try {
+            const el = this.chatLog.nativeElement;
+            el.scrollTop = el.scrollHeight;
+        } catch (err) {
+            console.error('Scroll to bottom failed', err);
+        }
     }
 }

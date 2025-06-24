@@ -69,7 +69,8 @@
 
 .stream-title {
     margin: 0;
-    font-size: 1rem;
+    margin-bottom: 10px;
+    font-size: 1.4rem;
     text-shadow: 0 0 4px #000;
 }
 
@@ -78,4 +79,15 @@
     font-size: 0.75rem;
     display: flex;
     justify-content: space-between;
+}
+
+.stream-description {
+    margin-top: 8px;
+    font-size: 1rem;
+}
+
+.stream-card-title {
+    font-size: 1.2rem;
+    color: #66d9ff;
+    margin: 0;
 }
