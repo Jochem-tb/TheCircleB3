@@ -31,9 +31,11 @@
                                     stream.viewerCount != null;
                                     else unknownViewers
                                 "
-                                >👁️ Viewers {{ stream.viewerCount }}</span
+                                >👁️ Viewers: {{ stream.viewerCount }}</span
                             >
-                            <ng-template #unknownViewers>?</ng-template>
+                            <ng-template #unknownViewers
+                                >👁️ Viewers: ?</ng-template
+                            >
                             <span
                                 class="stream-description"
                                 *ngIf="
