@@ -418,12 +418,24 @@ private send(msg: any): void {
     console.log('Send transport ready. Awaiting media.');
   }
 
+  // Toggle video visibility (by enabling/disabling the video track)
   toggleVideo(): void {
-    this.videoTrack && (this.videoTrack.enabled = !this.videoTrack.enabled);
+    if (this.videoTrack) {
+      this.videoTrack.enabled = !this.videoTrack.enabled;
+      console.log(
+        'Video ' + (this.videoTrack.enabled ? 'shown' : 'hidden')
+      );
+    }
   }
 
+  // Toggle audio visibility (by enabling/disabling the audio track)
   toggleAudio(): void {
-    this.audioTrack && (this.audioTrack.enabled = !this.audioTrack.enabled);
+    if (this.audioTrack) {
+      this.audioTrack.enabled = !this.audioTrack.enabled;
+      console.log(
+        'Audio ' + (this.audioTrack.enabled ? 'unmuted' : 'muted')
+      );
+    }
   }
 
   sendChatMessage(): void {
