@@ -328,18 +328,25 @@ private send(msg: any): void {
   }
 }
 
-  async getMediaStream(): Promise<void> {
-    try {
-      // Request media stream from the user
-      console.log('Requesting media stream...');
-      this.stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      this.videoRef.nativeElement.srcObject = this.stream;
-      this.mediaStreamAvailable = true;
-      console.log('Media stream acquired');
-    } catch (err) {
-      console.error('Failed to get media stream:', err);
-    }
+async getMediaStream(): Promise<void> {
+  try {
+    // 1. Request media from the user
+    this.stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    this.videoRef.nativeElement.srcObject = this.stream;
+    this.mediaStreamAvailable = true;
+    
+    // 2. Store the individual tracks so toggleXxx() can see them
+    const videoTracks = this.stream.getVideoTracks();
+    const audioTracks = this.stream.getAudioTracks();
+    if (videoTracks.length)  this.videoTrack = videoTracks[0];
+    if (audioTracks.length)  this.audioTrack = audioTracks[0];
+    
+    console.log('Video track:', this.videoTrack);
+    console.log('Audio track:', this.audioTrack);
+  } catch (err) {
+    console.error('Failed to get media stream:', err);
   }
+}
 
   async startStreaming(): Promise<void> {
     // Start streaming only if media stream is available
