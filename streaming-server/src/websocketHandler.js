@@ -5,6 +5,7 @@ const { logEvent } = require("./logging/logger");
 const { coinHandlerStart, coinHandlerStop } = require("./helpers");
 
 const rooms = new Map();
+const viewerStreams = new Map(); // Map<viewerId, Set<streamerId>>
 module.exports.rooms = rooms;
 
 module.exports.setupWebSocket = (server) => {
@@ -163,6 +164,35 @@ module.exports.setupWebSocket = (server) => {
                     case "create-viewer-transport": {
                         role = "viewer";
                         viewerId = data.viewerId;
+
+                        viewerStreams;
+
+                        if (!viewerStreams.has(viewerId)) {
+                            viewerStreams.set(viewerId, new Set());
+                        }
+
+                        const viewerSet = viewerStreams.get(viewerId);
+                        if (viewerSet.size >= 4) {
+                            ws.send(
+                                JSON.stringify({
+                                    type: "error",
+                                    message:
+                                        "Viewer cannot watch more than 4 streams at the same time.",
+                                })
+                            );
+                            return;
+                        }
+                        if (viewerSet.has(data.streamerId)) {
+                            ws.send(
+                                JSON.stringify({
+                                    type: "error",
+                                    message: "Already watching this stream.",
+                                })
+                            );
+                            return;
+                        }
+                        viewerSet.add(data.streamerId);
+
                         streamerId = data.streamerId;
                         room = rooms.get(data.streamerId);
                         if (!room?.router) return;
@@ -347,6 +377,14 @@ module.exports.setupWebSocket = (server) => {
                             userId: viewerId,
                             sessionId: streamerId,
                         });
+
+                        const streams = viewerStreams.get(viewerId);
+                        if (streams) {
+                            streams.delete(streamerId);
+                            if (streams.size === 0) {
+                                viewerStreams.delete(viewerId);
+                            }
+                        }
                     }
                 } else {
                     console.warn(
