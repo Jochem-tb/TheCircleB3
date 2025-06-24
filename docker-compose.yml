@@ -6,10 +6,9 @@ services:
         restart: always
         environment:
             MONGODB_URI: ${MONGODB_URI}
+            LOGGING_URL: ${LOGGING_URL}
         env_file:
             - .env
-
-
 
     frontend-viewer-dev:
         build:
@@ -38,31 +37,6 @@ services:
         command: npm run start -- --project streamer --host 0.0.0.0 --poll=1000 # Specify the project and enable polling
         environment:
         - CHOKIDAR_USEPOLLING=true # Enable Chokidar polling for better file watching
-    
-
-    # # DOESNT WORK
-    # frontend-streamer:
-    #     build:
-    #         context: ./frontend
-    #         args:
-    #             APP_NAME: streamer
-    #     ports:
-    #         - "4300:80"
-    #     # depends_on:
-    #     #   - truYou-auth
-    #     restart: always
-
-    # ingest-server:
-    #     build: ./ingest-server
-    #     ports:
-    #         - "1935:1935" # RTMP ingest
-    #         - "8000:8000" # HTTP
-    #         - "8090:8090" # WHIP
-    #     restart: always
-    #     volumes:
-    #         - ./ingest-server/recordings:/app/recordings
-    #     # depends_on:
-    #     #   - streaming-server
 
     # streaming-server:
     #     build: ./streaming-server
@@ -72,17 +46,14 @@ services:
     #     volumes:
     #         - streaming-hls:/var/www/hls
     #         - streaming-recordings:/var/www/recordings
+    #     command: npm run start -- --host 0.0.0.0 --port 3002
+    #     environment:
+    #         MONGODB_URI: ${MONGODB_URI}
+    #         HMAC_SECRET: ${HMAC_SECRET}
+    #         LOGGING_URL: ${LOGGING_SERVICE_URL}
+    #     env_file:
+    #         - .env
     #     restart: always
-
-    # streaming-api:
-    #     build: ./streaming-api
-    #     volumes:
-    #         - streaming-hls:/app/hls # Mount the same HLS folder if needed
-    #         - streaming-recordings:/app/recordings
-    #     ports:
-    #         - "5000:4000"
-    #     depends_on:
-    #         - streaming-server
 
     truyou-auth:
       build: ./truyou-auth
@@ -90,18 +61,21 @@ services:
         - "3000:3000"
       restart: always
       environment:
-        MONGODB_URI: ${MONGODB_URI}
+        MONGO_URI: ${MONGODB_URI}
       env_file:
         - .env
 
-#     logging-service:
-#         build: ./logging-service
-#         ports:
-#             - "5200:5200"
-#         restart: always
-#         environment:
-#             MONGODB_URI: ${MONGODB_URI} # Adjust log level as needed
-#             PORT: "5200"
+    logging-service:
+        build: ./logging-service
+        ports:
+            - "5200:5200"
+        restart: always
+        environment:
+            MONGO_URI: ${MONGODB_URI} # Adjust log level as needed
+            PORT: "5200"
+            HMAC_SECRET: ${HMAC_SECRET}
+        env_file:
+            - .env
 
 volumes:
     streaming-hls:
