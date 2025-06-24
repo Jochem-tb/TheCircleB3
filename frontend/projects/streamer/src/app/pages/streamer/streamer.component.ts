@@ -46,6 +46,7 @@ export class StreamerComponent implements OnInit, OnDestroy {
     mediaStreamAvailable = false;
     roomCreated = false;
     deviceLoaded = false;
+    followerCount: number = 0;
 
     constructor(
         private route: ActivatedRoute,
@@ -92,24 +93,23 @@ export class StreamerComponent implements OnInit, OnDestroy {
             }
         );
 
-        // Check initial auth status
-        this.isLoggedIn = this.cookieService.checkAuthCookie();
-        if (!this.isLoggedIn) {
-            this.showPopup = true; // Show login popup if not authenticated
-        }
+  // Check initial auth status
+  this.isLoggedIn = this.cookieService.checkAuthCookie();
+  if (!this.isLoggedIn) {
+    this.showPopup = true;
+  }
+
+  // followercount elke 60 seconden
+  setInterval(() => {
+    if (this.isLoggedIn && this.socket?.readyState === WebSocket.OPEN) {
+      this.send({ type: 'get-follower-count', streamerId: this.streamerId });
     }
+  }, 60000); // 60 seconden
+}
 
-    ngOnDestroy(): void {
-        if (this.authSubscription) {
-            this.authSubscription.unsubscribe();
-        }
-        if (this.socket) {
-            this.socket.close();
-        }
-
-        this.chatService.disconnect();
-    }
-
+  ngOnDestroy(): void {
+    if (this.authSubscription) {
+      this.authSubscription.unsubscribe();
     // Login popup and authentication
     onProfileClick(): void {
         console.log('Profile clicked');
@@ -264,92 +264,77 @@ export class StreamerComponent implements OnInit, OnDestroy {
     closeDropdown(): void {
         this.dropdownOpen = false;
     }
+    this.isStreaming = false;
+    this.mediaStreamAvailable = false;
+    this.roomCreated = false;
+    this.router.navigate(['/']);
+  }
 
-    logout(): void {
-        console.log('Logout clicked');
-        this.cookieService.clearAuthCookie();
-        this.isLoggedIn = false;
-        this.streamerId = '';
-        this.dropdownOpen = false;
-        this.showPopup = true; // Show login popup after logout
-        if (this.socket) {
-            this.socket.close();
-        }
-        this.isStreaming = false;
-        this.mediaStreamAvailable = false;
-        this.roomCreated = false;
-        this.router.navigate(['/']);
-    }
+  private initWebSocket(): void {
+    // Establish a WebSocket connection
+    console.log('Connecting WebSocket...');
+    this.socket = new WebSocket('ws://localhost:3002');
 
-    private initWebSocket(): void {
-        // Establish a WebSocket connection
-        console.log('Connecting WebSocket...');
-        this.socket = new WebSocket('ws://localhost:3002');
+    this.socket.onopen = () => {
+      console.log('WebSocket connected');
+    };
 
-        this.socket.onopen = () => {
-            console.log('WebSocket connected');
-        };
+    this.socket.onmessage = async (event) => {
+      const message = JSON.parse(event.data);
+      console.log('WebSocket message received:', message);
 
-        this.socket.onmessage = async (event) => {
-            const message = JSON.parse(event.data);
-            console.log('WebSocket message received:', message);
+      // Handle the different message types from the server
+      switch (message.type) {
+        case 'room-created':
+          this.roomCreated = true;
+          console.log('Room created, requesting router RTP capabilities...');
+          this.send({ type: 'get-router-rtp-capabilities', streamerId: this.streamerId });
+          break;
 
-            // Handle the different message types from the server
-            switch (message.type) {
-                case 'room-created':
-                    this.roomCreated = true;
-                    console.log(
-                        'Room created, requesting router RTP capabilities...'
-                    );
-                    this.send({
-                        type: 'get-router-rtp-capabilities',
-                        streamerId: this.streamerId,
-                    });
-                    break;
+        case 'router-rtp-capabilities':
+          await this.loadDevice(message.data);
+          this.deviceLoaded = true;
+          this.send({ type: 'create-streamer-transport', streamerId: this.streamerId });
+          break;
 
-                case 'router-rtp-capabilities':
-                    await this.loadDevice(message.data);
-                    this.deviceLoaded = true;
-                    this.send({
-                        type: 'create-streamer-transport',
-                        streamerId: this.streamerId,
-                    });
-                    break;
+        case 'streamer-transport-created':
+          await this.createSendTransport(message.params);
+          break;
 
-                case 'streamer-transport-created':
-                    await this.createSendTransport(message.params);
-                    break;
+        case 'streamer-transport-connected':
+          console.log('Streamer transport connected');
+          break;
 
-                case 'streamer-transport-connected':
-                    console.log('Streamer transport connected');
-                    break;
+        case 'produced':
+          console.log('Stream produced, ID:', message.id);
+          break;
+        
+          case 'follower-count-update':
+          this.followerCount = message.count;
+          console.log('Follower count updated:', this.followerCount);
+          break;
+          
+        default:
+          console.warn('Unknown message type:', message.type);
+      }
+    };
 
-                case 'produced':
-                    console.log('Stream produced, ID:', message.id);
-                    break;
+    this.socket.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+  }
 
-                default:
-                    console.warn('Unknown message type:', message.type);
-            }
-        };
+private send(msg: any): void {
+  const userId = localStorage.getItem("userId"); // <-- username uit login
+  const enrichedMsg = { ...msg, userId };
 
-        this.socket.onerror = (error) => {
-            console.error('WebSocket error:', error);
-        };
-    }
-
-    private send(msg: any): void {
-        const userId = localStorage.getItem('userId'); // <-- username uit login
-        const enrichedMsg = { ...msg, userId };
-
-        if (this.socket.readyState === WebSocket.OPEN) {
-            console.log('Sending message to server:', enrichedMsg);
-            this.socket.send(JSON.stringify(enrichedMsg));
-        } else {
-            console.warn('Tried to send message but socket not open');
-        }
-    }
-
+  if (this.socket.readyState === WebSocket.OPEN) {
+    console.log('Sending message to server:', enrichedMsg);
+    this.socket.send(JSON.stringify(enrichedMsg));
+  } else {
+    console.warn('Tried to send message but socket not open');
+  }
+}
     async getMediaStream(): Promise<void> {
         try {
             // Request media stream from the user

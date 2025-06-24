@@ -1,10 +1,8 @@
 const WebSocket = require('ws');
 const { Room } = require('./room');
 const mediasoupWorker = require('./mediasoupWorker');
-const { logEvent } = require('./logging/logger'); // toevoegen bovenin websocketHandler.js
-const { coinHandlerStart } = require('./helpers');
-const { coinHandlerStop } = require('./helpers');
-
+const { logEvent } = require('./logging/logger');
+const { coinHandlerStart, coinHandlerStop } = require('./helpers');
 
 const rooms = new Map();
 module.exports.rooms = rooms;
@@ -27,7 +25,24 @@ module.exports.setupWebSocket = (server) => {
             role = 'streamer';
             room = new Room(streamerId);
             room.router = await mediasoupWorker.createRouter();
+            room.viewers = new Map();
+            room.streamerProducers = new Map();
+            room.hasLoggedStart = false;
+            room.viewerCount = 0;
+
+            // Voeg updateViewerCount methode toe
+            room.updateViewerCount = (broadcastFn) => {
+              room.viewerCount = room.viewers.size;
+              const message = {
+                type: 'follower-count-update',
+                count: room.viewerCount
+              };
+              if (broadcastFn) broadcastFn(message);
+            };
+
             rooms.set(streamerId, room);
+            ws.role = 'streamer';
+            ws.streamerId = streamerId;
             console.log(`Room created for streamer: ${streamerId}`);
             ws.send(JSON.stringify({ type: 'room-created' }));
             break;
@@ -99,9 +114,9 @@ module.exports.setupWebSocket = (server) => {
 
             ws.send(JSON.stringify({ type: 'produced', id: producer.id }));
             
-            if(data.kind === 'video'){
+            if (data.kind === 'video') {
               console.log(`Starting coin handler for ${streamerId}`);
-              await coinHandlerStart(data.streamerId)
+              await coinHandlerStart(data.streamerId);
             }
 
             break;
@@ -121,8 +136,12 @@ module.exports.setupWebSocket = (server) => {
               preferUdp: true
             });
 
-            room.viewers.set(viewerId, { transport, consumers: new Map() });
+            room.viewers.set(viewerId, { transport, consumers: new Map(), ws });
             console.log(`Viewer ${viewerId} connected to streamer ${data.streamerId}`);
+
+            ws.role = 'viewer';
+            ws.viewerId = viewerId;
+            ws.streamerId = streamerId;
 
             ws.send(JSON.stringify({
               type: 'viewer-transport-created',
@@ -133,6 +152,15 @@ module.exports.setupWebSocket = (server) => {
                 dtlsParameters: transport.dtlsParameters
               }
             }));
+
+            room.updateViewerCount((msg) => {
+              const streamerWs = [...wss.clients].find(
+                client => client.role === 'streamer' && client.streamerId === streamerId
+              );
+              if (streamerWs && streamerWs.readyState === 1) {
+                streamerWs.send(JSON.stringify(msg));
+              }
+            });
 
             await logEvent({
               eventType: "follow_start",
@@ -187,6 +215,13 @@ module.exports.setupWebSocket = (server) => {
             break;
           }
 
+          case 'get-follower-count': {
+            const room = rooms.get(data.streamerId);
+            const count = room?.viewers?.size || 0;
+            ws.send(JSON.stringify({ type: 'follower-count-update', count }));
+            break;
+          }
+
           default:
             console.log('Unknown message type:', data.type);
         }
@@ -206,18 +241,31 @@ module.exports.setupWebSocket = (server) => {
         rooms.delete(streamerId);
       } else if (role === 'viewer' && viewerId) {
         if (streamerId) {
-          await logEvent({
-            eventType: "follow_end",
-            userId: viewerId,
-            sessionId: streamerId
-          });
+          const room = rooms.get(streamerId);
+          if (room) {
+            room.viewers.delete(viewerId);
+
+            room.updateViewerCount((msg) => {
+              const streamerWs = [...wss.clients].find(
+                client => client.role === 'streamer' && client.streamerId === streamerId
+              );
+              if (streamerWs && streamerWs.readyState === 1) {
+                streamerWs.send(JSON.stringify(msg));
+              }
+            });
+
+            await logEvent({
+              eventType: "follow_end",
+              userId: viewerId,
+              sessionId: streamerId
+            });
+          }
         } else {
-              console.warn(`⚠️ Cannot log follow_end: missing streamerId for viewer ${viewerId}`);
+          console.warn(`⚠️ Cannot log follow_end: missing streamerId for viewer ${viewerId}`);
         }
+
         console.log(`Viewer '${viewerId}' disconnected`);
-        rooms.delete(streamerId);
-        console.log(`Reached stop`);
-        coinHandlerStop(streamerId)
+        coinHandlerStop(streamerId);
       }
     });
   });
