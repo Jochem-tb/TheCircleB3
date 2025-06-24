@@ -1,3 +1,7 @@
+// Voordat je dit bestand uitvoert, zorg dat je een .env bestand hebt met de volgende variabelen:
+// MONGO_URI=je_mongo_db_uri
+// HMAC_SECRET=testsecret
+
 const chai = require("chai");
 const request = require("supertest");
 const mongoose = require("mongoose");
