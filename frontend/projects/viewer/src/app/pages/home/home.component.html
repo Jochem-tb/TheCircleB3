@@ -17,7 +17,7 @@
                 [attr.aria-label]="'Watch stream by ' + stream.streamerId"
             >
                 <img
-                    src="placeholderStreamer1.png"
+                    [src]="getRandomImage()"
                     alt="Stream thumbnail"
                     class="stream-image"
                 />

@@ -33,6 +33,18 @@ export class HomeComponent implements OnInit {
         this.router.navigate([`/stream/${streamId}`]);
     }
 
+    getRandomImage(): string {
+        // Return a random image URL for the stream thumbnail
+        const images = [
+            'placeholderStreamer1.png',
+            'placeholderStreamer2.png',
+            'placeholderStreamer3.png',
+            'placeholderStreamer4.png',
+        ];
+
+        return images[Math.floor(Math.random() * images.length)];
+    }
+
     fetchStreams(): void {
         this.loading = true;
 
