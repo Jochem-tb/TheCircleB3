@@ -1,39 +1,43 @@
-<header class="header">
-  <img 
-    src="assets/circle.png" 
-    alt="Left Logo" 
-    class="left-image" 
-    (click)="onLeftImageClick()"
-  />
-
-<div class="right-section">
-  <ng-container *ngIf="isLoggedIn; else loggedOut">
-    <div (click)="toggleDropdown()" style="display: inline-block; cursor: pointer;">
-      Logged in ▼
+<header class="header retro-header">
+    <img
+        src="assets/circle.png"
+        alt="Logo"
+        class="left-image"
+        (click)="onLeftImageClick()"
+    />
+    <div class="right-section">
+        <ng-container *ngIf="isLoggedIn; else loggedOut">
+            <div class="retro-button" (click)="toggleDropdown()">
+                Logged in ▼
+            </div>
+            <div class="dropdown-menu" *ngIf="dropdownOpen">
+                <button class="dropdown-item" (click)="logout()">Logout</button>
+            </div>
+        </ng-container>
+        <ng-template #loggedOut>
+            <button class="retro-button" (click)="onProfileClick()">
+                Log in
+            </button>
+        </ng-template>
     </div>
-    <div class="dropdown-menu" *ngIf="dropdownOpen">
-      <button (click)="logout()">Logout</button>
-    </div>
-  </ng-container>
+</header>
 
-  <ng-template #loggedOut>
-    <button class="log-in-button"(click)="onProfileClick()">Log in</button>
-  </ng-template>
-</div>
-
-<!-- Popup overlay -->
 <div class="popup-overlay" *ngIf="showPopup" (click)="closePopup()">
-  <div class="popup-content" (click)="$event.stopPropagation()">
-    <input
-      type="text"
-      [(ngModel)]="userName"
-      placeholder="Username"
-    />
-     <input
-      type="file"
-      (change)="onFileSelected($event)"
-      accept=".pem"
-    />
-    <button (click)="onSubmit()">Enter</button>
-  </div>
+    <div class="popup-content" (click)="$event.stopPropagation()">
+        <input
+            type="text"
+            [(ngModel)]="userName"
+            placeholder="Username"
+            class="retro-input"
+        />
+        <input
+            type="file"
+            (change)="onFileSelected($event)"
+            accept=".pem"
+            class="retro-input file-input"
+        />
+        <button class="retro-button submit-button" (click)="onSubmit()">
+            Enter
+        </button>
+    </div>
 </div>
