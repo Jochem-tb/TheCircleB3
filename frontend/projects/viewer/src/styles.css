@@ -1,6 +1,8 @@
-body, html {
-  margin: 0 !important;
-  padding: 0 !important;
-  background-color: #212121;
-  font-family: sans-serif;
+body,
+html {
+    margin: 0 !important;
+    padding: 0 !important;
+    background-color: #212121;
+    font-family: sans-serif;
+    overflow: hidden;
 }

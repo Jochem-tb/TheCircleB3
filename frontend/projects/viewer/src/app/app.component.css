@@ -1,11 +1,13 @@
 /* @import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap");
 VERY RETRO */
 
+
 .retro-content {
     background: #0a0a0a;
     color: #66d9ff;
     min-height: calc(100vh - 80px);
     font-family: "Press Start 2P", monospace;
+    overflow: hidden;
 }
 
 body {

@@ -1,27 +1,31 @@
-<div class="content-grid">
-    <div class="following">
-        following
-    </div>
+<div class="retro-stream-wrapper">
+    <div class="stream-layout">
+        <!-- Stream Column -->
+        <div class="stream-main">
+            <video
+                #video
+                autoplay
+                playsinline
+                muted
+                controls
+                class="stream-video"
+            ></video>
 
-    <div class="stream">
+            <div class="streamer-header">
+                <h1>Streamer: {{ streamerId }}</h1>
+            </div>
 
-<video
-  #video
-  autoplay
-  playsinline
-  muted
-  controls
-  style="width: 100%; max-width: 1800px; height: auto; border-radius: 12px; box-shadow: 0 0 10px black;"
-></video>
+            <div class="stream-description-box">
+                <p>
+                    This is a stream description, here you can place your own
+                    text. VERY SOON!!
+                </p>
+            </div>
+        </div>
 
-        <div class="streamer-info" style="grid-column: 2; grid-row: 2">
-            <h2>🎥 Now Watching ID: {{ streamerId }}</h2>
-            <p>Description</p>
+        <!-- Chat Column -->
+        <div class="chat-panel">
+            <app-chat [streamerId]="streamerId"></app-chat>
         </div>
     </div>
-
-    <div class="chat">
-        <app-chat [streamerId]="streamerId"></app-chat>
-    </div>
-    
 </div>
