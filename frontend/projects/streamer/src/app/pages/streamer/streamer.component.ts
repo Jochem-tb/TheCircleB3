@@ -441,8 +441,8 @@ private send(msg: any): void {
   sendChatMessage(): void {
     if (this.newMessage.trim() === '') return;
 
-    const cookie = this.cookieService.getCookie('authenticated');
-    const userName = cookie ? JSON.parse(cookie).userName : 'Anonymous';
+    const cookie = this.cookieService.getCookie('streamer_auth');
+    const userName = cookie ? JSON.parse(cookie).username : 'Anonymous';
     const authenticated = this.cookieService.checkAuthCookie();
 
     const messageJson = {

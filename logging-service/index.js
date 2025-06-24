@@ -10,7 +10,7 @@ const hmacAuth = require("./middleware/hmacAuth");
 
 const app = express();
 
-const uri = process.env.MONGO_URI;
+const uri = process.env.MONGODB_URI;
 
 app.use(cors());
 
