@@ -1,4 +1,10 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
+import {
+    Component,
+    OnInit,
+    OnDestroy,
+    ViewChild,
+    ElementRef,
+} from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -9,76 +15,83 @@ import * as mediasoupClient from 'mediasoup-client';
 import { ChatService, ChatMessage } from '../../services/chat.service';
 
 @Component({
-  selector: 'app-streamer',
-  templateUrl: './streamer.component.html',
-  styleUrls: ['./streamer.component.css'],
-  standalone: true,
-  imports: [CommonModule, FormsModule, HttpClientModule],
+    selector: 'app-streamer',
+    templateUrl: './streamer.component.html',
+    styleUrls: ['./streamer.component.css'],
+    standalone: true,
+    imports: [CommonModule, FormsModule, HttpClientModule],
 })
 export class StreamerComponent implements OnInit, OnDestroy {
-  @ViewChild('video') videoRef!: ElementRef<HTMLVideoElement>;
+    @ViewChild('video') videoRef!: ElementRef<HTMLVideoElement>;
 
-  messages: ChatMessage[] = [];
-  newMessage: string = '';
-  chatError: string | null = null;
+    messages: ChatMessage[] = [];
+    newMessage: string = '';
+    chatError: string | null = null;
 
-  streamerId: string = '';
-  userName: string = '';
-  privateKey: string = '';
-  showPopup: boolean = false;
-  isLoggedIn: boolean = false;
-  dropdownOpen: boolean = false;
-  private authSubscription!: Subscription;
-  private device!: mediasoupClient.Device;
-  private socket!: WebSocket;
-  private sendTransport!: mediasoupClient.types.Transport;
-  private stream!: MediaStream;
-  private videoTrack!: MediaStreamTrack;  // Store video track
-  private audioTrack!: MediaStreamTrack;  // Store audio track
+    streamerId: string = '';
+    userName: string = '';
+    privateKey: string = '';
+    showPopup: boolean = false;
+    isLoggedIn: boolean = false;
+    dropdownOpen: boolean = false;
+    private authSubscription!: Subscription;
+    private device!: mediasoupClient.Device;
+    private socket!: WebSocket;
+    private sendTransport!: mediasoupClient.types.Transport;
+    private stream!: MediaStream;
+    private videoTrack!: MediaStreamTrack; // Store video track
+    private audioTrack!: MediaStreamTrack; // Store audio track
 
-  isStreaming = false;
-  mediaStreamAvailable = false;
-  roomCreated = false;
-  deviceLoaded = false;
-  followerCount: number = 0;
+    isStreaming = false;
+    mediaStreamAvailable = false;
+    roomCreated = false;
+    deviceLoaded = false;
+    followerCount: number = 0;
 
+    constructor(
+        private route: ActivatedRoute,
+        private router: Router,
+        private http: HttpClient,
+        private cookieService: CookieService,
+        private chatService: ChatService
+    ) {}
 
-  constructor(
-    private route: ActivatedRoute,
-    private router: Router,
-    private http: HttpClient,
-    private cookieService: CookieService,
-    private chatService: ChatService
-  ) { }
+    ngOnInit(): void {
+        // Subscribe to authentication status
+        this.authSubscription = this.cookieService.authenticated$.subscribe(
+            (isAuth) => {
+                this.isLoggedIn = isAuth;
+                if (isAuth) {
+                    // Retrieve username from cookie or server if needed
+                    const cookie =
+                        this.cookieService.getCookie('streamer_auth');
+                    if (cookie) {
+                        try {
+                            const data = JSON.parse(cookie);
+                            this.streamerId = data.username || this.userName; // Set streamerId to username
+                            this.initWebSocket();
+                            this.chatService.connect(this.streamerId);
+                            this.chatService.messages$.subscribe((msg) => {
+                                this.messages.push(msg);
+                                // Optional: auto scroll chat div (you can implement later)
+                            });
 
-ngOnInit(): void {
-  // Subscribe to authentication status
-  this.authSubscription = this.cookieService.authenticated$.subscribe((isAuth) => {
-    this.isLoggedIn = isAuth;
-    if (isAuth) {
-      const cookie = this.cookieService.getCookie('streamer_auth');
-      if (cookie) {
-        try {
-          const data = JSON.parse(cookie);
-          this.streamerId = data.username || this.userName;
-          this.initWebSocket();
-          this.chatService.connect(this.streamerId);
-          this.chatService.messages$.subscribe((msg) => {
-            this.messages.push(msg);
-          });
-
-          this.chatService.connectionError$.subscribe((err) => {
-            this.chatError = err;
-          });
-        } catch (e) {
-          console.error('Error parsing auth cookie:', e);
-        }
-      }
-    } else {
-      this.messages = [];
-      this.chatService.disconnect();
-    }
-  });
+                            // Subscribe to chat errors
+                            this.chatService.connectionError$.subscribe(
+                                (err) => {
+                                    this.chatError = err;
+                                }
+                            );
+                        } catch (e) {
+                            console.error('Error parsing auth cookie:', e);
+                        }
+                    }
+                } else {
+                    this.messages = [];
+                    this.chatService.disconnect();
+                }
+            }
+        );
 
   // Check initial auth status
   this.isLoggedIn = this.cookieService.checkAuthCookie();
@@ -97,161 +110,159 @@ ngOnInit(): void {
   ngOnDestroy(): void {
     if (this.authSubscription) {
       this.authSubscription.unsubscribe();
-    }
-    if (this.socket) {
-      this.socket.close();
-    }
-
-       this.chatService.disconnect();
-  }
-
-  // Login popup and authentication
-  onProfileClick(): void {
-    console.log('Profile clicked');
-    this.showPopup = true;
-  }
-
-  async onSubmit(): Promise<void> {
-    if (!this.userName || !this.privateKey) {
-      alert('Please provide username and private key file');
-      return;
+    // Login popup and authentication
+    onProfileClick(): void {
+        console.log('Profile clicked');
+        this.showPopup = true;
     }
 
-    try {
-      // Step 1: Get challenge and public key from server
-      const resp: any = await this.http
-        .get(`http://localhost:3000/auth/challenge?username=${this.userName}`)
-        .toPromise();
+    async onSubmit(): Promise<void> {
+        if (!this.userName || !this.privateKey) {
+            alert('Please provide username and private key file');
+            return;
+        }
 
-      const { challenge, public_key } = resp;
+        try {
+            // Step 1: Get challenge and public key from server
+            const resp: any = await this.http
+                .get(
+                    `http://localhost:3000/auth/challenge?username=${this.userName}`
+                )
+                .toPromise();
 
-      // Step 2: Sign the challenge using the private key
-      const signature = await this.signChallenge(challenge, this.privateKey);
+            const { challenge, public_key } = resp;
 
-      // Step 3: Send signature + username + public_key to authenticate endpoint
-      const payload = {
-        username: this.userName,
-        signature,
-        public_key,
-      };
+            // Step 2: Sign the challenge using the private key
+            const signature = await this.signChallenge(
+                challenge,
+                this.privateKey
+            );
 
-      console.log('Sending authentication payload:', payload);
+            // Step 3: Send signature + username + public_key to authenticate endpoint
+            const payload = {
+                username: this.userName,
+                signature,
+                public_key,
+            };
 
-      interface AuthResponse {
-        authenticated: boolean;
-        username: string;
-      }
+            console.log('Sending authentication payload:', payload);
 
-      const authResp = await this.http
-        .post<AuthResponse>('http://localhost:3000/auth/authenticate', payload)
-        .toPromise();
+            interface AuthResponse {
+                authenticated: boolean;
+                username: string;
+            }
 
-      console.log('Authentication response:', authResp);
+            const authResp = await this.http
+                .post<AuthResponse>(
+                    'http://localhost:3000/auth/authenticate',
+                    payload
+                )
+                .toPromise();
 
-      if (authResp && authResp.authenticated) {
-        this.cookieService.setAuthCookie(this.userName);
-        this.isLoggedIn = true;
-        this.streamerId = this.userName; // Set streamerId username
-        this.initWebSocket(); // Initialize WebSocket after login
-        alert('Authentication successful!');
-        this.userName = '';
-        this.privateKey = '';
+            console.log('Authentication response:', authResp);
+
+            if (authResp && authResp.authenticated) {
+                this.cookieService.setAuthCookie(this.userName);
+                this.isLoggedIn = true;
+                this.streamerId = this.userName; // Set streamerId username
+                this.initWebSocket(); // Initialize WebSocket after login
+                alert('Authentication successful!');
+                this.userName = '';
+                this.privateKey = '';
+                this.showPopup = false;
+            }
+        } catch (err) {
+            console.error('Error during authentication:', err);
+            alert('Authentication failed. See console for details.');
+            this.router.navigate(['/']); // Redirect to home on failure
+        }
+    }
+
+    closePopup(): void {
         this.showPopup = false;
-      }
-    } catch (err) {
-      console.error('Error during authentication:', err);
-      alert('Authentication failed. See console for details.');
-      this.router.navigate(['/']); // Redirect to home on failure
     }
-  }
 
-  closePopup(): void {
-    this.showPopup = false;
-  }
+    onFileSelected(event: Event): void {
+        const input = event.target as HTMLInputElement;
+        if (!input.files || input.files.length === 0) return;
 
-  onFileSelected(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    if (!input.files || input.files.length === 0) return;
+        const file = input.files[0];
+        const reader = new FileReader();
 
-    const file = input.files[0];
-    const reader = new FileReader();
+        reader.onload = () => {
+            this.privateKey = (reader.result as string).trim();
+            console.log('Private key loaded:', this.privateKey);
+        };
 
-    reader.onload = () => {
-      this.privateKey = (reader.result as string).trim();
-      console.log('Private key loaded:', this.privateKey);
-    };
+        reader.onerror = () => {
+            console.error('Error reading file');
+        };
 
-    reader.onerror = () => {
-      console.error('Error reading file');
-    };
-
-    reader.readAsText(file);
-  }
-
-  async signChallenge(challenge: string, privateKeyPem: string): Promise<string> {
-    const pemContents = privateKeyPem
-      .replace(/-----BEGIN PRIVATE KEY-----/, '')
-      .replace(/-----END PRIVATE KEY-----/, '')
-      .replace(/\r?\n|\r/g, '')
-      .trim();
-
-    const binaryDer = Uint8Array.from(window.atob(pemContents), (c) => c.charCodeAt(0));
-
-    const key = await window.crypto.subtle.importKey(
-      'pkcs8',
-      binaryDer.buffer,
-      {
-        name: 'RSASSA-PKCS1-v1_5',
-        hash: { name: 'SHA-256' },
-      },
-      false,
-      ['sign']
-    );
-
-    const data = this.hexToUint8Array(challenge);
-
-    const signature = await window.crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, data);
-
-    return this.arrayBufferToBase64(signature);
-  }
-
-  arrayBufferToBase64(buffer: ArrayBuffer): string {
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i]);
+        reader.readAsText(file);
     }
-    return window.btoa(binary);
-  }
 
-  hexToUint8Array(hex: string): Uint8Array {
-    if (hex.length % 2 !== 0) {
-      throw new Error('Invalid hex string');
+    async signChallenge(
+        challenge: string,
+        privateKeyPem: string
+    ): Promise<string> {
+        const pemContents = privateKeyPem
+            .replace(/-----BEGIN PRIVATE KEY-----/, '')
+            .replace(/-----END PRIVATE KEY-----/, '')
+            .replace(/\r?\n|\r/g, '')
+            .trim();
+
+        const binaryDer = Uint8Array.from(window.atob(pemContents), (c) =>
+            c.charCodeAt(0)
+        );
+
+        const key = await window.crypto.subtle.importKey(
+            'pkcs8',
+            binaryDer.buffer,
+            {
+                name: 'RSASSA-PKCS1-v1_5',
+                hash: { name: 'SHA-256' },
+            },
+            false,
+            ['sign']
+        );
+
+        const data = this.hexToUint8Array(challenge);
+
+        const signature = await window.crypto.subtle.sign(
+            'RSASSA-PKCS1-v1_5',
+            key,
+            data
+        );
+
+        return this.arrayBufferToBase64(signature);
     }
-    const array = new Uint8Array(hex.length / 2);
-    for (let i = 0; i < hex.length; i += 2) {
-      array[i / 2] = parseInt(hex.substr(i, 2), 16);
+
+    arrayBufferToBase64(buffer: ArrayBuffer): string {
+        let binary = '';
+        const bytes = new Uint8Array(buffer);
+        for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return window.btoa(binary);
     }
-    return array;
-  }
 
-  toggleDropdown(): void {
-    this.dropdownOpen = !this.dropdownOpen;
-  }
+    hexToUint8Array(hex: string): Uint8Array {
+        if (hex.length % 2 !== 0) {
+            throw new Error('Invalid hex string');
+        }
+        const array = new Uint8Array(hex.length / 2);
+        for (let i = 0; i < hex.length; i += 2) {
+            array[i / 2] = parseInt(hex.substr(i, 2), 16);
+        }
+        return array;
+    }
 
-  closeDropdown(): void {
-    this.dropdownOpen = false;
-  }
+    toggleDropdown(): void {
+        this.dropdownOpen = !this.dropdownOpen;
+    }
 
-  logout(): void {
-    console.log('Logout clicked');
-    this.cookieService.clearAuthCookie();
-    this.isLoggedIn = false;
-    this.streamerId = '';
-    this.dropdownOpen = false;
-    this.showPopup = true; // Show login popup after logout
-    if (this.socket) {
-      this.socket.close();
+    closeDropdown(): void {
+        this.dropdownOpen = false;
     }
     this.isStreaming = false;
     this.mediaStreamAvailable = false;
@@ -324,139 +335,153 @@ private send(msg: any): void {
     console.warn('Tried to send message but socket not open');
   }
 }
-
-  async getMediaStream(): Promise<void> {
-    try {
-      // Request media stream from the user
-      console.log('Requesting media stream...');
-      this.stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      this.videoRef.nativeElement.srcObject = this.stream;
-      this.mediaStreamAvailable = true;
-      // Store video and audio tracks
-      [this.videoTrack] = this.stream.getVideoTracks();
-      [this.audioTrack] = this.stream.getAudioTracks();
-      console.log('Media stream acquired');
-    } catch (err) {
-      console.error('Failed to get media stream:', err);
-    }
-  }
-
-  async startStreaming(): Promise<void> {
-    // Start streaming only if media stream is available
-    if (!this.stream || !this.mediaStreamAvailable) {
-      console.warn('Media stream not ready. Call getMediaStream() first.');
-      return;
+    async getMediaStream(): Promise<void> {
+        try {
+            // Request media stream from the user
+            console.log('Requesting media stream...');
+            this.stream = await navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: true,
+            });
+            this.videoRef.nativeElement.srcObject = this.stream;
+            this.mediaStreamAvailable = true;
+            // Store video and audio tracks
+            [this.videoTrack] = this.stream.getVideoTracks();
+            [this.audioTrack] = this.stream.getAudioTracks();
+            console.log('Media stream acquired');
+        } catch (err) {
+            console.error('Failed to get media stream:', err);
+        }
     }
 
-    if (!this.roomCreated) {
-      // Create room if not already created
-      console.log('Creating room...');
-      this.send({ type: 'create-room', streamerId: this.streamerId });
+    async startStreaming(): Promise<void> {
+        // Start streaming only if media stream is available
+        if (!this.stream || !this.mediaStreamAvailable) {
+            console.warn(
+                'Media stream not ready. Call getMediaStream() first.'
+            );
+            return;
+        }
+
+        if (!this.roomCreated) {
+            // Create room if not already created
+            console.log('Creating room...');
+            this.send({ type: 'create-room', streamerId: this.streamerId });
+        }
+
+        const waitUntilReady = async () => {
+            let retries = 20;
+            while (
+                (!this.deviceLoaded || !this.sendTransport) &&
+                retries-- > 0
+            ) {
+                console.log('Waiting for device & transport to be ready...');
+                await new Promise((r) => setTimeout(r, 300));
+            }
+        };
+
+        await waitUntilReady();
+
+        if (!this.sendTransport) {
+            console.error('Send transport not ready after waiting.');
+            return;
+        }
+
+        // Start streaming if everything is ready
+        console.log('Starting stream...');
+        try {
+            for (const track of this.stream.getTracks()) {
+                await this.sendTransport.produce({ track });
+                console.log(`Track produced: ${track.kind}`);
+            }
+            this.isStreaming = true;
+        } catch (err) {
+            console.error('Error while producing tracks:', err);
+        }
     }
 
-    const waitUntilReady = async () => {
-      let retries = 20;
-      while ((!this.deviceLoaded || !this.sendTransport) && retries-- > 0) {
-        console.log('Waiting for device & transport to be ready...');
-        await new Promise((r) => setTimeout(r, 300));
-      }
-    };
-
-    await waitUntilReady();
-
-    if (!this.sendTransport) {
-      console.error('Send transport not ready after waiting.');
-      return;
+    private async loadDevice(routerRtpCapabilities: any): Promise<void> {
+        // Load the device with RTP capabilities
+        this.device = new mediasoupClient.Device();
+        await this.device.load({ routerRtpCapabilities });
+        console.log('Mediasoup device loaded');
     }
 
-    // Start streaming if everything is ready
-    console.log('Starting stream...');
-    try {
-      for (const track of this.stream.getTracks()) {
-        await this.sendTransport.produce({ track });
-        console.log(`Track produced: ${track.kind}`);
-      }
-      this.isStreaming = true;
-    } catch (err) {
-      console.error('Error while producing tracks:', err);
+    private async createSendTransport(params: any): Promise<void> {
+        // Create transport for sending media
+        console.log('Creating send transport...');
+        this.sendTransport = this.device.createSendTransport(params);
+
+        this.sendTransport.on('connect', ({ dtlsParameters }, callback) => {
+            console.log('Connecting send transport...');
+            this.send({
+                type: 'connect-streamer-transport',
+                dtlsParameters,
+                streamerId: this.streamerId,
+            });
+            callback();
+        });
+
+        this.sendTransport.on(
+            'produce',
+            ({ kind, rtpParameters }, callback) => {
+                console.log(`Producing track: ${kind}`);
+                this.send({
+                    type: 'produce',
+                    kind,
+                    rtpParameters,
+                    streamerId: this.streamerId,
+                });
+                callback({ id: 'placeholder-producer-id' });
+            }
+        );
+
+        console.log('Send transport ready. Awaiting media.');
     }
-  }
 
-  private async loadDevice(routerRtpCapabilities: any): Promise<void> {
-    // Load the device with RTP capabilities
-    this.device = new mediasoupClient.Device();
-    await this.device.load({ routerRtpCapabilities });
-    console.log('Mediasoup device loaded');
-  }
-
-  private async createSendTransport(params: any): Promise<void> {
-    // Create transport for sending media
-    console.log('Creating send transport...');
-    this.sendTransport = this.device.createSendTransport(params);
-
-    this.sendTransport.on('connect', ({ dtlsParameters }, callback) => {
-      console.log('Connecting send transport...');
-      this.send({
-        type: 'connect-streamer-transport',
-        dtlsParameters,
-        streamerId: this.streamerId
-      });
-      callback();
-    });
-
-    this.sendTransport.on('produce', ({ kind, rtpParameters }, callback) => {
-      console.log(`Producing track: ${kind}`);
-      this.send({
-        type: 'produce',
-        kind,
-        rtpParameters,
-        streamerId: this.streamerId
-      });
-      callback({ id: 'placeholder-producer-id' });
-    });
-
-    console.log('Send transport ready. Awaiting media.');
-  }
-
-  get username(): string {
-    return this.streamerId;
-  }
-
+    get username(): string {
+        return this.streamerId;
+    }
 
     sendChatMessage(): void {
-    if (this.newMessage.trim() === '') return;
+        if (this.newMessage.trim() === '') return;
 
-    const cookie = this.cookieService.getCookie('authenticated');
-    const userName = cookie ? JSON.parse(cookie).userName : 'Anonymous';
-    const authenticated = this.cookieService.checkAuthCookie();
+        const cookie = this.cookieService.getCookie('streamer_auth');
+        const userName = cookie ? JSON.parse(cookie).username : 'Anonymous';
+        const authenticated = this.cookieService.checkAuthCookie();
 
-    const messageJson = {
-      type:"auth",
-      userName: userName,
-      messageText: this.newMessage,
-      publicKey: "",
-      signature: "",
-      authenticated: authenticated,
+        const messageJson = {
+            type: 'auth',
+            userName: userName,
+            messageText: this.newMessage,
+            publicKey: '',
+            signature: '',
+            authenticated: authenticated,
+        };
+
+        console.warn('Sending chat message:', messageJson);
+
+        this.chatService.sendMessage(messageJson);
+        this.newMessage = '';
     }
 
-    this.chatService.sendMessage(messageJson);
-    this.newMessage = '';
-  }
-
-  // Toggle video visibility (by enabling/disabling the video track)
-  toggleVideo(): void {
-    if (this.videoTrack) {
-      this.videoTrack.enabled = !this.videoTrack.enabled;
-      console.log('Video ' + (this.videoTrack.enabled ? 'shown' : 'hidden'));
+    // Toggle video visibility (by enabling/disabling the video track)
+    toggleVideo(): void {
+        if (this.videoTrack) {
+            this.videoTrack.enabled = !this.videoTrack.enabled;
+            console.log(
+                'Video ' + (this.videoTrack.enabled ? 'shown' : 'hidden')
+            );
+        }
     }
-  }
 
-  // Toggle audio visibility (by enabling/disabling the audio track)
-  toggleAudio(): void {
-    if (this.audioTrack) {
-      this.audioTrack.enabled = !this.audioTrack.enabled;
-      console.log('Audio ' + (this.audioTrack.enabled ? 'unmuted' : 'muted'));
+    // Toggle audio visibility (by enabling/disabling the audio track)
+    toggleAudio(): void {
+        if (this.audioTrack) {
+            this.audioTrack.enabled = !this.audioTrack.enabled;
+            console.log(
+                'Audio ' + (this.audioTrack.enabled ? 'unmuted' : 'muted')
+            );
+        }
     }
-  }
-
 }

@@ -89,8 +89,8 @@ ws.on('message', (data) => {
       console.log(`Authenticated as ${msg.name}`);
 
       // Display chat messages from other users
-    } else if (msg.sender && msg.messageText) {
-      console.log(`[${msg.timestamp}] ${msg.sender}: ${msg.messageText}`);
+    } else if (msg.userName && msg.messageText) {
+      console.log(`[${msg.timestamp}] ${msg.userName}: ${msg.messageText}`);
 
       // Unknown message format
     } else {
