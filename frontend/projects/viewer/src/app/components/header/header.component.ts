@@ -6,6 +6,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { HttpClientModule } from '@angular/common/http';
 import { CookieService } from '../../services/cookie.service';
 import { Subscription } from 'rxjs';
+import { SessionService } from '../../services/Session.service';
 
 
 @Component({
@@ -25,15 +26,17 @@ export class HeaderComponent implements OnInit, OnDestroy{
   constructor(
     private router: Router,
     private http: HttpClient,
-    private cookieService: CookieService
+    private cookieService: CookieService,
+    private sessionService: SessionService
   ) { }
 
   ngOnDestroy(): void {
     this.authSubscription.unsubscribe();
+  
   }
 
   ngOnInit(): void {
-    this.authSubscription = this.cookieService.authenticated$.subscribe(isAuth => {
+    this.authSubscription = this.sessionService.authenticated$.subscribe(isAuth => {
       this.isLoggedIn = isAuth;
     });
   }
@@ -88,7 +91,7 @@ export class HeaderComponent implements OnInit, OnDestroy{
       console.log('Authentication response:', authResp);
 
       if (authResp && authResp.authenticated) {
-        this.cookieService.setAuthCookie(this.userName);
+        this.sessionService.setAuthSession(this.userName, this.privateKey);
          this.isLoggedIn = true;
 
         alert('Authentication successful!');
@@ -202,7 +205,7 @@ closeDropdown(): void {
 
 logout(): void {
   console.log('Logout clicked');
-  this.cookieService.clearAuthCookie();
+  this.sessionService.clearAuthSession();
   this.isLoggedIn = false;
   this.dropdownOpen = false;
 

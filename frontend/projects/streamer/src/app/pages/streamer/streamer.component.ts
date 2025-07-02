@@ -11,6 +11,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { CookieService } from '../../services/cookie.service';
+import { SessionService } from '../../services/Session.service';
 import { Subscription, interval } from 'rxjs';
 import * as mediasoupClient from 'mediasoup-client';
 import { ChatService, ChatMessage } from '../../services/chat.service';
@@ -58,6 +59,7 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
         private router: Router,
         private http: HttpClient,
         private cookieService: CookieService,
+        private sessionService: SessionService,
         private chatService: ChatService
     ) {}
 
@@ -67,13 +69,13 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
     ngOnInit(): void {
         // Subscribe to authentication status
-        this.authSubscription = this.cookieService.authenticated$.subscribe(
+        this.authSubscription = this.sessionService.authenticated$.subscribe(
             (isAuth) => {
                 this.isLoggedIn = isAuth;
                 if (isAuth) {
                     // Retrieve username from cookie or server if needed
                     const cookie =
-                        this.cookieService.getCookie('streamer_auth');
+                        this.sessionService.getSessionItem('streamer_auth');
                     if (cookie) {
                         try {
                             const data = JSON.parse(cookie);
@@ -118,7 +120,7 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
         );
 
         // Check initial auth status
-        this.isLoggedIn = this.cookieService.checkAuthCookie();
+        this.isLoggedIn = this.sessionService.checkAuthSession();
         if (!this.isLoggedIn) {
             this.showPopup = true; // Show login popup if not authenticated
         }
@@ -187,13 +189,12 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
             console.log('Authentication response:', authResp);
 
             if (authResp && authResp.authenticated) {
-                this.cookieService.setAuthCookie(this.userName);
+                this.sessionService.setAuthSession(this.userName, this.privateKey);
                 this.isLoggedIn = true;
                 this.streamerId = this.userName; // Set streamerId to authenticated username
                 this.initWebSocket(); // Initialize WebSocket after login
                 alert('Authentication successful!');
                 this.userName = '';
-                this.privateKey = '';
                 this.showPopup = false;
             }
         } catch (err) {
@@ -292,7 +293,7 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
     logout(): void {
         console.log('Logout clicked');
-        this.cookieService.clearAuthCookie();
+        this.sessionService.clearAuthSession();
         this.isLoggedIn = false;
         this.streamerId = '';
         this.dropdownOpen = false;
@@ -569,9 +570,9 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
     sendChatMessage(): void {
         if (this.newMessage.trim() === '') return;
 
-        const cookie = this.cookieService.getCookie('streamer_auth');
+        const cookie = this.sessionService.getSessionItem('streamer_auth');
         const userName = cookie ? JSON.parse(cookie).username : 'Anonymous';
-        const authenticated = this.cookieService.checkAuthCookie();
+        const authenticated = this.sessionService.checkAuthSession();
 
         const messageJson = {
             type: 'auth',

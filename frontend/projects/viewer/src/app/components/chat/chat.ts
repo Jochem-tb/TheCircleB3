@@ -12,6 +12,7 @@ import { generateDevIdentity } from '../../utils/dev.auth';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { CookieService } from '../../services/cookie.service';
+import { SessionService } from '../../services/Session.service';
 import { timestamp } from 'rxjs';
 
 @Component({
@@ -33,7 +34,8 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
 
     constructor(
         private chatService: ChatService,
-        private cookieService: CookieService
+        private cookieService: CookieService,
+        private sessionService: SessionService
     ) {}
 
     ngAfterViewChecked() {
@@ -62,7 +64,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
         });
 
         // Authenticate user
-        this.cookieService.authenticated$.subscribe((auth) => {
+        this.sessionService.authenticated$.subscribe((auth) => {
             this.authenticated = auth;
         });
     }
@@ -70,7 +72,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
     sendMessage() {
         if (this.newMessage.trim() === '') return;
 
-        const cookie = this.cookieService.getCookie('authenticated');
+        const cookie = this.sessionService.getSessionItem('authenticated');
         const userName = cookie ? JSON.parse(cookie).userName : 'Anonymous';
 
         const messageJson = {
