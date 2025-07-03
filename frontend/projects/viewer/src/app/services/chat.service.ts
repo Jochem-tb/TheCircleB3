@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Subject } from 'rxjs';
+import { CryptoKeyService } from './crypto-key.service';
 
 export type ChatMessage = {
   userName: string;
@@ -11,7 +12,6 @@ export type ChatMessage = {
   providedIn: 'root',
 })
 export class ChatService {
-
   private ws: WebSocket | null = null;
   private messageSubject = new Subject<ChatMessage>();
   public messages$ = this.messageSubject.asObservable();
@@ -19,6 +19,8 @@ export class ChatService {
   public connectionError$ = this.connectionErrorSubject.asObservable();
 
   private authenticated = false;
+
+  constructor(private keyService: CryptoKeyService) {}
 
   connect(streamerId: string) {
     const url = `ws://localhost:8081/?userId=${streamerId}`;
@@ -32,14 +34,15 @@ export class ChatService {
     this.ws.onmessage = async (event) => {
       try {
         const data = JSON.parse(event.data);
-        const msgHash = await this.createHMAC(data.messageText, "mySecretKey");
+        const msgHash = await this.createHMAC(data.messageText, 'mySecretKey');
 
-        if(data.hash === msgHash){
-          console.log('📬 Message received:', data);
+        console.log('📬 Hash received:', data.hash);
+        console.log('Expected hash:', msgHash);
 
+        if (data.hash === msgHash) {
           if (data.error) {
             console.error('❌ Error from server:', data.error);
-            this.connectionErrorSubject.next('Server error: ' + data.error)
+            this.connectionErrorSubject.next('Server error: ' + data.error);
             return;
           }
 
@@ -50,7 +53,7 @@ export class ChatService {
             messageText: data.messageText,
             timestamp: data.timestamp,
           });
-        }else{
+        } else {
           console.error('Message received got tempered with');
         }
       } catch (err) {
@@ -72,18 +75,41 @@ export class ChatService {
 
   async sendMessage(messageJson: any) {
     if (!messageJson.authenticated) {
-      console.warn("🚫 User is not authenticated. Message not sent.");
+      console.warn('🚫 User is not authenticated. Message not sent.');
       return;
     }
-    
+
     if (this.ws?.readyState === WebSocket.OPEN) {
-      const msgHash = await this.createHMAC(messageJson.messageText, "mySecretKey");
-      messageJson.hash = msgHash
+      const msgHash = await this.createHMAC(
+        messageJson.messageText,
+        'mySecretKey'
+      );
+      messageJson.hash = msgHash;
+
+      const privateKey = this.keyService.getKey();
+      if (!privateKey) {
+        console.warn('🚫 No private key available. Message not sent.');
+        return;
+      }
+
+      const encoder = new TextEncoder();
+      const msgBuffer = encoder.encode(JSON.stringify(messageJson));
+
+      const signature = await crypto.subtle.sign(
+        'RSASSA-PKCS1-v1_5',
+        privateKey,
+        msgBuffer
+      );
+
+      const signatureBase64 = btoa(
+        String.fromCharCode(...new Uint8Array(signature))
+      );
+      messageJson.signature = signatureBase64;
 
       this.ws.send(JSON.stringify(messageJson));
-      console.log("✅ Message sent:", messageJson);
+      console.log('✅ Message sent:', messageJson);
     } else {
-      console.warn("🚫 WebSocket is not open. Message not sent.");
+      console.warn('🚫 WebSocket is not open. Message not sent.');
     }
   }
 
@@ -100,9 +126,15 @@ export class ChatService {
       ['sign']
     );
 
-    const signature = await crypto.subtle.sign('HMAC', cryptoKey, enc.encode(message));
+    const signature = await crypto.subtle.sign(
+      'HMAC',
+      cryptoKey,
+      enc.encode(message)
+    );
     const bytes = new Uint8Array(signature);
-    return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    return Array.from(bytes)
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
   }
 
   isAuthenticated(): boolean {

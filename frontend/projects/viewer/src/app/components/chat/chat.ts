@@ -79,11 +79,10 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
             type: 'auth',
             userName: userName,
             messageText: this.newMessage,
-            publicKey: '',
             signature: '',
             authenticated: this.authenticated,
         };
-
+        console.log('Sending message chat.ts:', messageJson);
         this.chatService.sendMessage(messageJson);
         this.newMessage = '';
     }
@@ -100,4 +99,6 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
             console.error('Scroll to bottom failed', err);
         }
     }
+
+
 }

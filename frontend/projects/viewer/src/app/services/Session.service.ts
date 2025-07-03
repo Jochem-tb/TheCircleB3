@@ -19,9 +19,9 @@ export class SessionService {
   }
 
   // Create session entry
-  setAuthSession(username: string, privateKey: string): void {
+  setAuthSession(username: string): void {
     const exp = new Date().getTime() + 60 * 60 * 1000; // 1 hour
-    const value = JSON.stringify({ userName: username, authenticated: true, exp , privateKey});
+    const value = JSON.stringify({ userName: username, authenticated: true, exp});
     sessionStorage.setItem('authenticated', value);
 
     // Immediately update observable
