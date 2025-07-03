@@ -44,7 +44,7 @@ class ChatRoom {
                         .digest('hex');
         }
 
-        let msgHash = createHMAC(msg.messageText, "mySecretKey")
+        const msgHash = createHMAC(msg.messageText, "mySecretKey")
 
         if(msg.hash === msgHash){
             const timestamp = new Date().toISOString();
@@ -83,6 +83,7 @@ class ChatRoom {
                 userName: msg.userName,
                 messageText: msg.messageText,
                 timestamp,
+                hash: msgHash,
             };
 
             // ✅ Log naar logging-service

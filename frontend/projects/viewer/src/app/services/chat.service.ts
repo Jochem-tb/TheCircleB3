@@ -29,24 +29,30 @@ export class ChatService {
       this.connectionErrorSubject.next(null);
     };
 
-    this.ws.onmessage = (event) => {
+    this.ws.onmessage = async (event) => {
       try {
         const data = JSON.parse(event.data);
-        console.log('📬 Message received:', data);
+        const msgHash = await this.createHMAC(data.messageText, "mySecretKey");
 
-        if (data.error) {
-          console.error('❌ Error from server:', data.error);
-          this.connectionErrorSubject.next('Server error: ' + data.error)
-          return;
+        if(data.hash === msgHash){
+          console.log('📬 Message received:', data);
+
+          if (data.error) {
+            console.error('❌ Error from server:', data.error);
+            this.connectionErrorSubject.next('Server error: ' + data.error)
+            return;
+          }
+
+          console.log('📬 Message received chatservice:', data);
+
+          this.messageSubject.next({
+            userName: data.userName,
+            messageText: data.messageText,
+            timestamp: data.timestamp,
+          });
+        }else{
+          console.error('Message received got tempered with');
         }
-
-        console.log('📬 Message received chatservice:', data);
-
-        this.messageSubject.next({
-          userName: data.userName,
-          messageText: data.messageText,
-          timestamp: data.timestamp,
-        });
       } catch (err) {
         console.error('❗ Invalid message format:', err);
         this.connectionErrorSubject.next('Invalid message format received');
