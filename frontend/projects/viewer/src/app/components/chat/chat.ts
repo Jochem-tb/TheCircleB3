@@ -74,11 +74,13 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
 
         const cookie = this.sessionService.getSessionItem('authenticated');
         const userName = cookie ? JSON.parse(cookie).userName : 'Anonymous';
+        const timestamp = new Date().toISOString();
 
         const messageJson = {
             type: 'auth',
             userName: userName,
             messageText: this.newMessage,
+            timestamp: timestamp,
             signature: '',
             authenticated: this.authenticated,
         };

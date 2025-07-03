@@ -1,6 +1,6 @@
 import fetch from "node-fetch";
 import axios from "axios";
-import crypto, { hash } from "crypto";
+import crypto from "crypto";
 import { AUTH_SERVER_URL } from "../config/config.js";
 import { connect } from "../service/mongoDBConn.js";
 
@@ -37,64 +37,72 @@ class ChatRoom {
 
     if (!msg.authenticated) return;
 
-    //Make a hash to check if it is altered
-    function createHMAC(message, key) {
-      return crypto.createHmac("sha256", key).update(message).digest("hex");
+    const { userName, messageText, signature, timestamp } = msg;
+    if (!userName || !messageText || !signature || !timestamp) {
+      return ws.send(JSON.stringify({ error: "Missing fields in message" }));
     }
 
-    const msgHash = createHMAC(msg.messageText, "mySecretKey");
+    // 🔐 Prepare the signed string
+    const signedPayload = `${userName}|${messageText}|${timestamp}`;
 
-    if (msg.hash === msgHash) {
-      const timestamp = new Date().toISOString();
+    try {
+      const db = await connect();
+      const users = db.collection("User");
+      const user = await users.findOne({ userName });
 
-      // 🔁 Opslaan in MongoDB
-      try {
-        const db = await connect();
-        const users = db.collection("User");
+      if (!user || !user.publicKey) {
+        return ws.send(JSON.stringify({ error: "User or publicKey not found" }));
+      }
 
-        const result = await users.updateOne(
-          { userName: msg.userName },
-          {
-            $push: {
-              chatMessages: {
-                messageText: msg.messageText,
-                timestamp,
-              },
+      // ✅ Verify the digital signature
+      const isVerified = crypto.verify(
+        "sha256",
+        Buffer.from(signedPayload),
+        {
+          key: user.publicKey,
+          padding: crypto.constants.RSA_PKCS1_PADDING,
+        },
+        Buffer.from(signature, "base64")
+      );
+
+      if (!isVerified) {
+        return ws.send(JSON.stringify({ error: "Signature verification failed" }));
+      }
+
+      // ✅ Store in MongoDB
+      await users.updateOne(
+        { userName },
+        {
+          $push: {
+            chatMessages: {
+              messageText,
+              timestamp,
             },
-          }
-        );
-
-        if (result.matchedCount === 0) {
-          console.log(`No user found with userName: ${msg.userName}`);
-        } else {
-          console.log(`Appended chat message for user ${msg.userName}`);
+          },
         }
-      } catch (err) {
-        console.error("Error updating MongoDB chatMessages:", err);
-      }
+      );
 
-      if (!msg.messageText) {
-        return ws.send(JSON.stringify({ error: "Missing messageText" }));
-      }
-
+      // 📢 Broadcast to all clients
       const message = {
-        userName: msg.userName,
-        messageText: msg.messageText,
+        userName,
+        messageText: sanitizedMessage,
         timestamp,
-        hash: msgHash,
       };
 
       // ✅ Log naar logging-service
-      this.logChatEvent({
-        userName: msg.userName,
-        messageText: msg.messageText,
-        timestamp,
-      }).catch((err) => {
-        console.error("Logging failed:", err.message);
-      });
+    //   this.logChatEvent({
+    //     userName: msg.userName,
+    //     messageText: msg.messageText,
+    //     timestamp,
+    //   }).catch((err) => {
+    //     console.error("Logging failed:", err.message);
+    //   });
+
+
       this.broadcast(JSON.stringify(message));
-    } else {
-      return ws.send(JSON.stringify({ error: "Data got tempered with" }));
+    } catch (err) {
+      console.error("❌ Internal error in handleMessage:", err);
+      return ws.send(JSON.stringify({ error: "Internal server error" }));
     }
   }
 
@@ -107,42 +115,38 @@ class ChatRoom {
     }
   }
 
-  async logChatEvent({ userName, messageText, timestamp }) {
-    if (!userName || !messageText) {
-      console.warn("⚠️ logChatEvent: Missing userName or messageText");
-      return;
-    }
+//   async logChatEvent({ userName, messageText, timestamp }) {
+//     if (!userName || !messageText) {
+//       console.warn("⚠️ logChatEvent: Missing userName or messageText");
+//       return;
+//     }
 
-    const event = {
-      eventType: "message_sent",
-      userId: userName,
-      sessionId: this.userId,
-      timestamp,
-      metadata: { messageText: messageText.trim() },
-    };
+//     const event = {
+//       eventType: "message_sent",
+//       userId: userName,
+//       sessionId: this.userId,
+//       timestamp,
+//       metadata: { messageText: messageText.trim() },
+//     };
 
-    const body = JSON.stringify(event);
-    const ts = new Date().toISOString();
-    const secret = process.env.HMAC_SECRET;
+//     const body = JSON.stringify(event);
+//     const ts = new Date().toISOString();
+//     const secret = process.env.HMAC_SECRET;
 
-    const signature = crypto
-      .createHmac("sha256", secret)
-      .update(ts + body)
-      .digest("hex");
+//     const signature = crypto
+//       .createHmac("sha256", secret)
+//       .update(ts + body)
+//       .digest("hex");
 
-    try {
-      const res = await axios.post(process.env.LOGGING_URL, body, {
-        headers: {
-          "Content-Type": "application/json",
-          "X-Timestamp": ts,
-          "X-Signature": signature,
-        },
-        timeout: 2000,
-      });
-    } catch (err) {
-      console.error("❌ Failed to send chat log:", err.message);
-    }
-  }
+//     await axios.post(process.env.LOGGING_URL, body, {
+//       headers: {
+//         "Content-Type": "application/json",
+//         "X-Timestamp": ts,
+//         "X-Signature": signature,
+//       },
+//       timeout: 2000,
+//     });
+//   }
 
   async verifyWithAuthServer(name, publicKey, signature) {
     try {
