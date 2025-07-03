@@ -1,6 +1,6 @@
 import fetch from "node-fetch";
 import axios from "axios";
-import crypto from "crypto";
+import crypto, { hash } from "crypto";
 import { AUTH_SERVER_URL } from "../config/config.js";
 import { connect } from "../service/mongoDBConn.js";
 
@@ -37,54 +37,67 @@ class ChatRoom {
 
         if (!msg.authenticated) return;
 
-        const timestamp = new Date().toISOString();
+        //Make a hash to check if it is altered
+        function createHMAC(message, key) {
+            return crypto.createHmac('sha256', key)
+                        .update(message)
+                        .digest('hex');
+        }
 
-        // 🔁 Opslaan in MongoDB
-        try {
-            const db = await connect();
-            const users = db.collection("User");
+        let msgHash = createHMAC(msg.messageText, "mySecretKey")
 
-            const result = await users.updateOne(
-                { userName: msg.userName },
-                {
-                    $push: {
-                        chatMessages: {
-                            messageText: msg.messageText,
-                            timestamp,
+        if(msg.hash === msgHash){
+            const timestamp = new Date().toISOString();
+
+            // 🔁 Opslaan in MongoDB
+            try {
+                const db = await connect();
+                const users = db.collection("User");
+
+                const result = await users.updateOne(
+                    { userName: msg.userName },
+                    {
+                        $push: {
+                            chatMessages: {
+                                messageText: msg.messageText,
+                                timestamp,
+                            },
                         },
-                    },
+                    }
+                );
+
+                if (result.matchedCount === 0) {
+                    console.log(`No user found with userName: ${msg.userName}`);
+                } else {
+                    console.log(`Appended chat message for user ${msg.userName}`);
                 }
-            );
-
-            if (result.matchedCount === 0) {
-                console.log(`No user found with userName: ${msg.userName}`);
-            } else {
-                console.log(`Appended chat message for user ${msg.userName}`);
+            } catch (err) {
+                console.error("Error updating MongoDB chatMessages:", err);
             }
-        } catch (err) {
-            console.error("Error updating MongoDB chatMessages:", err);
+
+            if (!msg.messageText) {
+                return ws.send(JSON.stringify({ error: "Missing messageText" }));
+            }
+
+            const message = {
+                userName: msg.userName,
+                messageText: msg.messageText,
+                timestamp,
+            };
+
+            // ✅ Log naar logging-service
+            this.logChatEvent({
+                userName: msg.userName,
+                messageText: msg.messageText,
+                timestamp,
+            }).catch((err) => {
+                console.error("Logging failed:", err.message);
+            });
+
+            this.broadcast(JSON.stringify(message));
+        }else{
+            return ws.send(JSON.stringify({ error: "Data got tempered with" }));
         }
-
-        if (!msg.messageText) {
-            return ws.send(JSON.stringify({ error: "Missing messageText" }));
-        }
-
-        const message = {
-            userName: msg.userName,
-            messageText: msg.messageText,
-            timestamp,
-        };
-
-        // ✅ Log naar logging-service
-        this.logChatEvent({
-            userName: msg.userName,
-            messageText: msg.messageText,
-            timestamp,
-        }).catch((err) => {
-            console.error("Logging failed:", err.message);
-        });
-
-        this.broadcast(JSON.stringify(message));
     }
 
     broadcast(data) {

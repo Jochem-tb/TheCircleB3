@@ -64,20 +64,42 @@ export class ChatService {
     };
   }
 
-  sendMessage(messageJson: any) {
-  if (!messageJson.authenticated) {
-    console.warn("🚫 User is not authenticated. Message not sent.");
-    return;
-  }
-  
-  if (this.ws?.readyState === WebSocket.OPEN) {
-    this.ws.send(JSON.stringify(messageJson));
-    console.log("✅ Message sent:", messageJson);
-  } else {
-    console.warn("🚫 WebSocket is not open. Message not sent.");
-  }
-}
+  async sendMessage(messageJson: any) {
+    if (!messageJson.authenticated) {
+      console.warn("🚫 User is not authenticated. Message not sent.");
+      return;
+    }
 
+    console.log(messageJson)
+    
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      const msgHash = await this.createHMAC(messageJson.messageText, "mySecretKey");
+      messageJson.hash = msgHash
+
+      this.ws.send(JSON.stringify(messageJson));
+      console.log("✅ Message sent:", messageJson);
+    } else {
+      console.warn("🚫 WebSocket is not open. Message not sent.");
+    }
+  }
+
+  //Make a secret hash
+  async createHMAC(message: string, key: string) {
+    const enc = new TextEncoder();
+
+    // Import the key
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw',
+      enc.encode(key),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+
+    const signature = await crypto.subtle.sign('HMAC', cryptoKey, enc.encode(message));
+    const bytes = new Uint8Array(signature);
+    return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
 
   isAuthenticated(): boolean {
     return this.authenticated;
