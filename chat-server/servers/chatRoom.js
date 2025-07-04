@@ -37,20 +37,9 @@ class ChatRoom {
 
     if (!msg.authenticated) return;
 
-    const { userName, messageText, signature, timestamp , hash} = msg;
-    if (!userName || !messageText || !signature || !timestamp || !msgHash) {
+    const { userName, messageText, signature, timestamp } = msg;
+    if (!userName || !messageText || !signature || !timestamp) {
       return ws.send(JSON.stringify({ error: "Missing fields in message" }));
-    }
-
-    //Make a hash to check if it is altered
-    function createHMAC(message, key) {
-      return crypto.createHmac("sha256", key).update(message).digest("hex");
-    }
-
-    const ownHash = createHMAC(msg.messageText, "mySecretKey");
-
-    if(ownHash !== msg.hash){
-      return ws.send(JSON.stringify({ error: "Message got tempered with" }));
     }
 
     // 🔐 Prepare the signed string
