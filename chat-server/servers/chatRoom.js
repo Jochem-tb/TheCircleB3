@@ -37,7 +37,7 @@ class ChatRoom {
 
     if (!msg.authenticated) return;
 
-    const { userName, messageText, signature, timestamp , msgHash} = msg;
+    const { userName, messageText, signature, timestamp , hash} = msg;
     if (!userName || !messageText || !signature || !timestamp || !msgHash) {
       return ws.send(JSON.stringify({ error: "Missing fields in message" }));
     }
@@ -49,7 +49,7 @@ class ChatRoom {
 
     const ownHash = createHMAC(msg.messageText, "mySecretKey");
 
-    if(ownHash !== msg.msgHash){
+    if(ownHash !== msg.hash){
       return ws.send(JSON.stringify({ error: "Message got tempered with" }));
     }
 
