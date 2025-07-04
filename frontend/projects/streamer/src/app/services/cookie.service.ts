@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, interval } from 'rxjs';
+import { CryptoKeyService } from './crypto-key.service';
 
 @Injectable({
   providedIn: 'root'
@@ -8,13 +9,22 @@ export class CookieService {
   private authSubject = new BehaviorSubject<boolean>(this.internalCheckAuthCookie());
   public authenticated$ = this.authSubject.asObservable();
 
-  constructor() {
-    // Poll every min to check if the cookie expired
-    interval(60000).subscribe(() => {
+  constructor(
+    private cryptoKeyService: CryptoKeyService
+  ) {
+    // Poll every sec to check if the cookie expired
+    interval(1000).subscribe(() => {
       const isAuth = this.internalCheckAuthCookie();
       if (isAuth !== this.authSubject.value) {
         this.authSubject.next(isAuth);
       }
+
+      // Check if key is still valid
+      const key = this.cryptoKeyService.getKey();
+      if (!key) {
+        this.clearAuthCookie();
+      }
+
     });
   }
 

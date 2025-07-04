@@ -10,7 +10,7 @@ import { ActivatedRoute } from '@angular/router';
 import * as mediasoupClient from 'mediasoup-client';
 import { CommonModule } from '@angular/common';
 import { ChatComponent } from '../../components/chat/chat';
-import { CookieService } from '../../services/cookie.service';
+import { SessionService } from '../../services/Session.service';
 
 @Component({
     selector: 'app-stream',
@@ -32,7 +32,7 @@ export class StreamComponent implements OnInit, OnDestroy, AfterViewInit {
 
     constructor(
         private route: ActivatedRoute,
-        private cookieService: CookieService
+        private sessionService: SessionService
     ) {}
 
     ngOnDestroy(): void {
@@ -47,7 +47,7 @@ export class StreamComponent implements OnInit, OnDestroy, AfterViewInit {
         // Get the streamer ID from the route
         this.streamerId = this.route.snapshot.params['streamId'];
         console.log('Viewer for streamer:', this.streamerId);
-        this.cookieService.checkAuthCookie();
+        this.sessionService.checkAuthSession();
     }
 
     ngAfterViewInit(): void {

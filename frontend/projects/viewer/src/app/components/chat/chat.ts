@@ -34,7 +34,6 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
 
     constructor(
         private chatService: ChatService,
-        private cookieService: CookieService,
         private sessionService: SessionService
     ) {}
 

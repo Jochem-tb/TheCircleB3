@@ -26,6 +26,8 @@ export class ChatService {
     const url = `ws://localhost:8081/?userId=${streamerId}`;
     this.ws = new WebSocket(url);
 
+    
+
     this.ws.onopen = () => {
       console.log('✅ WebSocket connection established');
       this.connectionErrorSubject.next(null);

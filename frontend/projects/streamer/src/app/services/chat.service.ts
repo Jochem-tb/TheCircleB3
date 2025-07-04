@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Subject } from 'rxjs';
+import { CryptoKeyService } from './crypto-key.service';
 
 export type ChatMessage = {
   userName: string;
@@ -11,6 +12,8 @@ export type ChatMessage = {
   providedIn: 'root',
 })
 export class ChatService {
+
+  constructor(private keyService: CryptoKeyService) { }
 
   private ws: WebSocket | null = null;
   private messageSubject = new Subject<ChatMessage>();
@@ -34,7 +37,7 @@ export class ChatService {
         const data = JSON.parse(event.data);
         const msgHash = await this.createHMAC(data.messageText, "mySecretKey");
 
-        if(data.hash === msgHash){
+        if (data.hash === msgHash) {
           console.log('📬 Message received:', data);
 
           if (data.error) {
@@ -50,7 +53,7 @@ export class ChatService {
             messageText: data.messageText,
             timestamp: data.timestamp,
           });
-        }else{
+        } else {
           console.error('Message received got tempered with')
         }
       } catch (err) {
@@ -77,10 +80,30 @@ export class ChatService {
     }
 
     console.log(messageJson)
-    
+
     if (this.ws?.readyState === WebSocket.OPEN) {
       const msgHash = await this.createHMAC(messageJson.messageText, "mySecretKey");
       messageJson.hash = msgHash
+
+      const privateKey = this.keyService.getKey();
+      if (!privateKey) {
+        console.warn('🚫 No private key available. Message not sent.');
+        return;
+      }
+
+      const encoder = new TextEncoder();
+      const msgBuffer = encoder.encode(JSON.stringify(messageJson));
+
+      const signature = await crypto.subtle.sign(
+        'RSASSA-PKCS1-v1_5',
+        privateKey,
+        msgBuffer
+      );
+
+      const signatureBase64 = btoa(
+        String.fromCharCode(...new Uint8Array(signature))
+      );
+      messageJson.signature = signatureBase64;
 
       this.ws.send(JSON.stringify(messageJson));
       console.log("✅ Message sent:", messageJson);

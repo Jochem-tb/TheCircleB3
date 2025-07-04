@@ -26,7 +26,6 @@ export class HeaderComponent implements OnInit, OnDestroy {
   constructor(
     private router: Router,
     private http: HttpClient,
-    private cookieService: CookieService,
     private sessionService: SessionService,
     private keyService: CryptoKeyService
   ) {}

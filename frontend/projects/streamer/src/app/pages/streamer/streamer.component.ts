@@ -15,6 +15,7 @@ import { SessionService } from '../../services/Session.service';
 import { Subscription, interval } from 'rxjs';
 import * as mediasoupClient from 'mediasoup-client';
 import { ChatService, ChatMessage } from '../../services/chat.service';
+import { CryptoKeyService } from '../../services/crypto-key.service';
 
 @Component({
     selector: 'app-streamer',
@@ -58,10 +59,10 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
         private route: ActivatedRoute,
         private router: Router,
         private http: HttpClient,
-        private cookieService: CookieService,
         private sessionService: SessionService,
-        private chatService: ChatService
-    ) {}
+        private chatService: ChatService,
+        private keyService: CryptoKeyService
+    ) { }
 
     ngAfterViewChecked() {
         this.scrollToBottom();
@@ -99,7 +100,7 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
                                     if (
                                         this.isLoggedIn &&
                                         this.socket?.readyState ===
-                                            WebSocket.OPEN
+                                        WebSocket.OPEN
                                     ) {
                                         this.send({
                                             type: 'get-follower-count',
@@ -189,7 +190,7 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
             console.log('Authentication response:', authResp);
 
             if (authResp && authResp.authenticated) {
-                this.sessionService.setAuthSession(this.userName, this.privateKey);
+                this.sessionService.setAuthSession(this.userName);
                 this.isLoggedIn = true;
                 this.streamerId = this.userName; // Set streamerId to authenticated username
                 this.initWebSocket(); // Initialize WebSocket after login
@@ -208,16 +209,18 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
         this.showPopup = false;
     }
 
-    onFileSelected(event: Event): void {
+    async onFileSelected(event: Event) {
         const input = event.target as HTMLInputElement;
         if (!input.files || input.files.length === 0) return;
 
         const file = input.files[0];
         const reader = new FileReader();
 
-        reader.onload = () => {
+        reader.onload = async () => {
             this.privateKey = (reader.result as string).trim();
-            console.log('Private key loaded:', this.privateKey);
+            const cryptoKey = await this.importPrivateKey(this.privateKey);
+            this.keyService.setKey(cryptoKey);
+            console.log(cryptoKey);
         };
 
         reader.onerror = () => {
@@ -411,12 +414,6 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
             return;
         }
 
-        // if (this.socket) {
-        //     // Ensure WebSocket is connected
-        //     console.warn('WebSocket not connected. Reconnecting...');
-        //     this.initWebSocket();
-        // }
-
         if (!this.roomCreated) {
             // Create room if not already created
             console.log('Creating room...');
@@ -578,7 +575,6 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
             type: 'auth',
             userName: userName,
             messageText: this.newMessage,
-            publicKey: '',
             signature: '',
             authenticated: authenticated,
         };
@@ -594,5 +590,22 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
         } catch (err) {
             // sometimes view not initialized yet
         }
+    }
+
+    async importPrivateKey(pem: string): Promise<CryptoKey> {
+        const b64 = pem
+            .replace(/-----(BEGIN|END) PRIVATE KEY-----/g, '')
+            .replace(/\s+/g, '');
+        const binary = atob(b64);
+        const buf = new ArrayBuffer(binary.length);
+        const view = new Uint8Array(buf);
+        for (let i = 0; i < binary.length; i++) view[i] = binary.charCodeAt(i);
+        return crypto.subtle.importKey(
+            'pkcs8',
+            buf,
+            { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+            false,
+            ['sign']
+        );
     }
 }
