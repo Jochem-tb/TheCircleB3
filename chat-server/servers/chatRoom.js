@@ -96,7 +96,7 @@ class ChatRoom {
       // 📢 Broadcast to all clients
       const message = {
         userName,
-        messageText: sanitizedMessage,
+        messageText,
         timestamp,
       };
 

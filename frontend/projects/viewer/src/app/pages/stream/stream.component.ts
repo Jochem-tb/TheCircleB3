@@ -106,7 +106,7 @@ export class StreamComponent implements OnInit, OnDestroy, AfterViewInit {
         console.log('Creating recv transport...');
         this.recvTransport = this.device.createRecvTransport(params);
 
-        this.recvTransport.on('connect', ({ dtlsParameters }, callback) => {
+        this.recvTransport.on('connect', ({ dtlsParameters }: any, callback) => {
             this.send({
                 type: 'connect-viewer-transport',
                 streamerId: this.streamerId,
@@ -116,7 +116,7 @@ export class StreamComponent implements OnInit, OnDestroy, AfterViewInit {
             callback();
         });
 
-        this.recvTransport.on('connectionstatechange', (state) => {
+        this.recvTransport.on('connectionstatechange', (state: any) => {
             console.log('Viewer transport state:', state);
         });
 
