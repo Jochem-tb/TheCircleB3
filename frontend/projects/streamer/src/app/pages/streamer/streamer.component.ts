@@ -15,6 +15,7 @@ import { SessionService } from '../../services/Session.service';
 import { Subscription, interval } from 'rxjs';
 import * as mediasoupClient from 'mediasoup-client';
 import { ChatService, ChatMessage } from '../../services/chat.service';
+import { CryptoKeyService } from '../../services/crypto-key.service';
 
 @Component({
     selector: 'app-streamer',
@@ -60,7 +61,8 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
         private http: HttpClient,
         private cookieService: CookieService,
         private sessionService: SessionService,
-        private chatService: ChatService
+        private chatService: ChatService,
+        private keyService: CryptoKeyService // ⬅️ Toegevoegd
     ) {}
 
     ngAfterViewChecked() {
@@ -215,9 +217,29 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
         const file = input.files[0];
         const reader = new FileReader();
 
-        reader.onload = () => {
+        reader.onload = async () => {
             this.privateKey = (reader.result as string).trim();
-            console.log('Private key loaded:', this.privateKey);
+            console.log('Private key loaded');
+
+            const pem = this.privateKey
+                .replace(/-----BEGIN PRIVATE KEY-----/, '')
+                .replace(/-----END PRIVATE KEY-----/, '')
+                .replace(/\r?\n|\r/g, '');
+
+            const binaryDer = Uint8Array.from(atob(pem), c => c.charCodeAt(0));
+
+            const key = await crypto.subtle.importKey(
+                'pkcs8',
+                binaryDer.buffer,
+                {
+                    name: 'RSASSA-PKCS1-v1_5',
+                    hash: { name: 'SHA-256' },
+                },
+                false,
+                ['sign']
+            );
+
+            this.keyService.setKey(key); // ⬅️ Hier sla je het op
         };
 
         reader.onerror = () => {
@@ -567,19 +589,41 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
         }
     }
 
-    sendChatMessage(): void {
+    async sendChatMessage(): Promise<void> {
         if (this.newMessage.trim() === '') return;
 
         const cookie = this.sessionService.getSessionItem('streamer_auth');
         const userName = cookie ? JSON.parse(cookie).username : 'Anonymous';
         const authenticated = this.sessionService.checkAuthSession();
 
+        const timestamp = new Date().toISOString();
+        const payload = `${userName}|${this.newMessage}|${timestamp}`;
+
+        const privateKey = this.keyService.getKey();
+        if (!privateKey) {
+            console.warn('🚫 No private key set');
+            return;
+        }
+
+        const encoder = new TextEncoder();
+        const msgBuffer = encoder.encode(payload);
+
+        const signature = await crypto.subtle.sign(
+            'RSASSA-PKCS1-v1_5',
+            privateKey,
+            msgBuffer
+        );
+
+        const signatureBase64 = btoa(
+            String.fromCharCode(...new Uint8Array(signature))
+        );
+
         const messageJson = {
             type: 'auth',
             userName: userName,
             messageText: this.newMessage,
-            publicKey: '',
-            signature: '',
+            timestamp: timestamp,
+            signature: signatureBase64,
             authenticated: authenticated,
         };
 
