@@ -76,13 +76,18 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
                 if (isAuth) {
                     // Retrieve username from cookie or server if needed
                     const cookie =
-                        this.sessionService.getSessionItem('streamer_auth');
+                        this.sessionService.getSessionItem('authenticated');
                     if (cookie) {
                         try {
                             const data = JSON.parse(cookie);
-                            this.streamerId = data.username || this.userName; // Set streamerId to username
+                            this.streamerId = data.userName || this.userName; // Set streamerId to username
                             this.initWebSocket();
                             this.chatService.connect(this.streamerId);
+                            this.chatService.connectionError$.subscribe((error) => {
+                                console.log('Chat streamingpage connection error:', error);
+                            });
+
+
                             this.chatService.messages$.subscribe((msg) => {
                                 this.messages.push(msg);
                                 // Optional: auto scroll chat div (you can implement later)
@@ -567,8 +572,8 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
     sendChatMessage(): void {
         if (this.newMessage.trim() === '') return;
 
-        const cookie = this.sessionService.getSessionItem('streamer_auth');
-        const userName = cookie ? JSON.parse(cookie).username : 'Anonymous';
+        const cookie = this.sessionService.getSessionItem('authenticated');
+        const userName = cookie ? JSON.parse(cookie).userName : 'Anonymous';
         const authenticated = this.sessionService.checkAuthSession();
 
         const messageJson = {

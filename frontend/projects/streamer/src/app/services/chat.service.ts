@@ -46,8 +46,6 @@ export class ChatService {
             return;
           }
 
-          console.log('📬 Message received chatservice:', data);
-
           this.messageSubject.next({
             userName: data.userName,
             messageText: data.messageText,
