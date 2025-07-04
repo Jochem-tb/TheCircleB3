@@ -3,6 +3,7 @@ const { Room } = require("./room");
 const mediasoupWorker = require("./mediasoupWorker");
 const { logEvent } = require("./logging/logger");
 const { coinHandlerStart, coinHandlerStop } = require("./helpers");
+const crypto = require('crypto')
 
 const rooms = new Map();
 module.exports.rooms = rooms;
@@ -62,6 +63,7 @@ module.exports.setupWebSocket = (server) => {
 
                     case "create-streamer-transport": {
                         if (!room?.router) return;
+
                         const transport =
                             await room.router.createWebRtcTransport({
                                 listenIps: [
@@ -102,6 +104,11 @@ module.exports.setupWebSocket = (server) => {
                     }
 
                     case "connect-streamer-transport": {
+                        //Added hash
+                        const ownHash = createHMAC(data.streamerId, "mySecretKey");
+
+                        if(ownHash !== data.hash) return;
+
                         if (!room?.streamerTransport) return;
                         await room.streamerTransport.connect({
                             dtlsParameters: data.dtlsParameters,
@@ -118,6 +125,11 @@ module.exports.setupWebSocket = (server) => {
                     }
 
                     case "produce": {
+                        //Added hash
+                        const ownHash = createHMAC(data.streamerId, "mySecretKey");
+
+                        if(ownHash !== data.hash) return;
+
                         if (!room?.streamerTransport) return;
 
                         const producer = await room.streamerTransport.produce({
@@ -190,6 +202,9 @@ module.exports.setupWebSocket = (server) => {
                         ws.viewerId = viewerId;
                         ws.streamerId = streamerId;
 
+                        //Added hash
+                        const ownHash = createHMAC(data.streamerId, "mySecretKey");
+
                         ws.send(
                             JSON.stringify({
                                 type: "viewer-transport-created",
@@ -198,6 +213,8 @@ module.exports.setupWebSocket = (server) => {
                                     iceParameters: transport.iceParameters,
                                     iceCandidates: transport.iceCandidates,
                                     dtlsParameters: transport.dtlsParameters,
+                                    //Added hash
+                                    hash: ownHash
                                 },
                             })
                         );
@@ -265,6 +282,9 @@ module.exports.setupWebSocket = (server) => {
                             );
                         });
 
+                        //Added hash
+                        const ownHash = createHMAC(data.streamerId, "mySecretKey");
+
                         ws.send(
                             JSON.stringify({
                                 type: "consumed",
@@ -273,6 +293,8 @@ module.exports.setupWebSocket = (server) => {
                                     producerId: producer.id,
                                     kind: consumer.kind,
                                     rtpParameters: consumer.rtpParameters,
+                                    //Added hash
+                                    hash: ownHash 
                                 },
                             })
                         );
@@ -358,4 +380,8 @@ module.exports.setupWebSocket = (server) => {
             }
         });
     });
+
+    function createHMAC(message, key) {
+        return crypto.createHmac("sha256", key).update(message).digest("hex");
+    }
 };

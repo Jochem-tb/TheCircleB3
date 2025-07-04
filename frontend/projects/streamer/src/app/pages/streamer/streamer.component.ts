@@ -514,9 +514,13 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
 
     private async createSendTransport(params: any): Promise<void> {
+        let ownHash
         // Create transport for sending media
         console.log('Creating send transport...');
         this.sendTransport = this.device.createSendTransport(params);
+
+        //Added hash
+        ownHash = await this.createHMAC(this.streamerId, "mySecretKey")
 
         this.sendTransport.on('connect', ({ dtlsParameters }, callback) => {
             console.log('Connecting send transport...');
@@ -524,6 +528,8 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
                 type: 'connect-streamer-transport',
                 dtlsParameters,
                 streamerId: this.streamerId,
+                //Added hash
+                hash: ownHash
             });
             callback();
         });
@@ -537,6 +543,8 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
                     kind,
                     rtpParameters,
                     streamerId: this.streamerId,
+                    //Added hash
+                    hash: ownHash
                 });
                 callback({ id: 'placeholder-producer-id' });
             }
@@ -594,5 +602,23 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
         } catch (err) {
             // sometimes view not initialized yet
         }
+    }
+
+    //Make a secret hash
+    async createHMAC(message: string, key: string) {
+        const enc = new TextEncoder();
+
+        // Import the key
+        const cryptoKey = await crypto.subtle.importKey(
+        'raw',
+        enc.encode(key),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign']
+        );
+
+        const signature = await crypto.subtle.sign('HMAC', cryptoKey, enc.encode(message));
+        const bytes = new Uint8Array(signature);
+        return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
     }
 }
