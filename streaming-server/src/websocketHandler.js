@@ -1,8 +1,10 @@
 const WebSocket = require("ws");
+const crypto = require('crypto');
 const { Room } = require("./room");
 const mediasoupWorker = require("./mediasoupWorker");
 const { logEvent } = require("./logging/logger");
 const { coinHandlerStart, coinHandlerStop } = require("./helpers");
+const { getUserPublicKey } = require('./auth/publicKeyStore');
 
 const rooms = new Map();
 module.exports.rooms = rooms;
@@ -120,28 +122,38 @@ module.exports.setupWebSocket = (server) => {
                     case "produce": {
                         if (!room?.streamerTransport) return;
 
-                        const producer = await room.streamerTransport.produce({
-                            kind: data.kind,
-                            rtpParameters: data.rtpParameters,
+                        const { streamerId, kind, timestamp, rtpParameters, signature } = data;
+
+                        const payload = `${streamerId}|${kind}|${timestamp}|${JSON.stringify(rtpParameters)}`;
+
+                        const publicKeyPem = await getUserPublicKey(streamerId);
+                        console.log(`[DEBUG] Public key for ${streamerId}:`, publicKeyPem);
+
+                        const publicKey = crypto.createPublicKey({
+                            key: publicKeyPem,
+                            format: 'pem',
                         });
 
-                        room.streamerProducers.set(data.kind, producer);
-                        console.log(
-                            `Streamer ${streamerId} produced: ${data.kind}`
+                        const isVerified = crypto.verify(
+                            'sha256',
+                            Buffer.from(payload),
+                            publicKey,
+                            Buffer.from(signature, 'base64')
                         );
 
-                        if (!room.hasLoggedStart) {
-                            await logEvent({
-                                eventType: "stream_start",
-                                userId: streamerId,
-                                sessionId: streamerId,
-                                metadata: {
-                                    kind: data.kind,
-                                    ip: ws._socket?.remoteAddress,
-                                },
-                            });
-                            room.hasLoggedStart = true;
+                        if (!isVerified) {
+                            console.warn(`Invalid signature for produce by ${streamerId}`);
+                            ws.send(JSON.stringify({ type: "error", message: "Invalid signature for produce." }));
+                            return;
                         }
+
+                        const producer = await room.streamerTransport.produce({
+                            kind,
+                            rtpParameters,
+                        });
+
+                        room.streamerProducers.set(kind, producer);
+                        console.log(`✅ Valid producer from ${streamerId}: ${kind}`);
 
                         ws.send(
                             JSON.stringify({
@@ -149,13 +161,6 @@ module.exports.setupWebSocket = (server) => {
                                 id: producer.id,
                             })
                         );
-
-                        if (data.kind === "video") {
-                            console.log(
-                                `Starting coin handler for ${streamerId}`
-                            );
-                            await coinHandlerStart(data.streamerId);
-                        }
 
                         break;
                     }

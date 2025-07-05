@@ -6,6 +6,8 @@ const websocketHandler = require("./websocketHandler");
 const mediasoupWorker = require("./mediasoupWorker");
 const { printRoomList } = require("./helpers");
 const { rooms } = require("./websocketHandler"); // Import for rooms map
+const authRoutes = require('./auth/authenticate');
+
 
 // Initialize Express app with CORS setup
 const app = express();
@@ -14,6 +16,8 @@ app.use(
         origin: process.env.CORS_ORIGIN || "*", // Allow all origins, change for production
     })
 );
+app.use(express.json()); // Zorg dat je JSON kan parsen
+app.use(authRoutes);
 
 // Create the HTTP server and WebSocket server
 const server = http.createServer(app);

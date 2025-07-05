@@ -36,11 +36,17 @@ export class HeaderComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.authSubscription = this.sessionService.authenticated$.subscribe(
-      (isAuth) => {
-        this.isLoggedIn = isAuth;
+      this.authSubscription = this.sessionService.authenticated$.subscribe(
+        (isAuth) => {
+          this.isLoggedIn = isAuth;
+        }
+      );
+
+      // Forceer herauthenticatie als er geen sleutel is
+      const hasKey = this.keyService.getKey() !== null;
+      if (!this.isLoggedIn || !hasKey) {
+          this.logout(); // Triggert showPopup
       }
-    );
   }
 
   onLeftImageClick() {
@@ -213,12 +219,14 @@ export class HeaderComponent implements OnInit, OnDestroy {
   }
 
   logout(): void {
-    console.log('Logout clicked');
-    this.sessionService.clearAuthSession();
-    this.isLoggedIn = false;
-    this.dropdownOpen = false;
+      console.log('Viewer logout');
+      this.sessionService.clearAuthSession();
+      this.keyService.setKey(null); // 🔐 sleutel verwijderen
+      this.isLoggedIn = false;
+      this.dropdownOpen = false;
+      this.showPopup = true;
   }
-
+  
   async importPrivateKey(pem: string): Promise<CryptoKey> {
     const b64 = pem
       .replace(/-----(BEGIN|END) PRIVATE KEY-----/g, '')

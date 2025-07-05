@@ -26,7 +26,7 @@ module.exports.stopWorker = () => {
 
 // Create a Mediasoup router (handles media transport between devices)
 module.exports.createRouter = async () => {
-  if (!worker) {
+  if (!worker) {A
     throw new Error('Mediasoup worker not initialized');
   }
 

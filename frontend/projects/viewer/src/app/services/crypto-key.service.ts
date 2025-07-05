@@ -4,7 +4,7 @@ import { Injectable } from '@angular/core';
 export class CryptoKeyService {
   private privateKey: CryptoKey | null = null;
 
-  setKey(key: CryptoKey) {
+  setKey(key: CryptoKey | null) {
     this.privateKey = key;
   }
 
