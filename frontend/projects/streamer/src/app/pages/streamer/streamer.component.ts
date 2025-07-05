@@ -70,61 +70,46 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
 
     ngOnInit(): void {
-        // Subscribe to authentication status
+        this.isLoggedIn = this.sessionService.checkAuthSession();
+        const hasKey = this.keyService.getKey() !== null;
+
+        // 🔐 Verplicht opnieuw inloggen bij refresh
+        if (!this.isLoggedIn || !hasKey) {
+            this.logout(); // forceert showPopup
+            return;
+        }
+
+        // Ingelogd? Init socket & chat
         this.authSubscription = this.sessionService.authenticated$.subscribe(
             (isAuth) => {
                 this.isLoggedIn = isAuth;
-                if (isAuth) {
-                    // Retrieve username from cookie or server if needed
-                    const cookie =
-                        this.sessionService.getSessionItem('streamer_auth');
-                    if (cookie) {
-                        try {
-                            const data = JSON.parse(cookie);
-                            this.streamerId = data.username || this.userName; // Set streamerId to username
-                            this.initWebSocket();
-                            this.chatService.connect(this.streamerId);
-                            this.chatService.messages$.subscribe((msg) => {
-                                this.messages.push(msg);
-                                // Optional: auto scroll chat div (you can implement later)
-                            });
-
-                            // Subscribe to chat errors
-                            this.chatService.connectionError$.subscribe(
-                                (err) => {
-                                    this.chatError = err;
-                                }
-                            );
-
-                            this.followerInterval = interval(60000).subscribe(
-                                () => {
-                                    if (
-                                        this.isLoggedIn &&
-                                        this.socket?.readyState ===
-                                            WebSocket.OPEN
-                                    ) {
-                                        this.send({
-                                            type: 'get-follower-count',
-                                            streamerId: this.streamerId,
-                                        });
-                                    }
-                                }
-                            );
-                        } catch (e) {
-                            console.error('Error parsing auth cookie:', e);
-                        }
-                    }
-                } else {
-                    this.messages = [];
-                    this.chatService.disconnect();
-                }
             }
         );
 
-        // Check initial auth status
-        this.isLoggedIn = this.sessionService.checkAuthSession();
-        if (!this.isLoggedIn) {
-            this.showPopup = true; // Show login popup if not authenticated
+        const cookie = this.sessionService.getSessionItem('streamer_auth');
+        if (cookie) {
+            try {
+                const data = JSON.parse(cookie);
+                this.streamerId = data.username;
+                this.initWebSocket();
+                this.chatService.connect(this.streamerId);
+                this.chatService.messages$.subscribe((msg) => {
+                    this.messages.push(msg);
+                });
+                this.chatService.connectionError$.subscribe((err) => {
+                    this.chatError = err;
+                });
+                this.followerInterval = interval(60000).subscribe(() => {
+                    if (this.socket?.readyState === WebSocket.OPEN) {
+                        this.send({
+                            type: 'get-follower-count',
+                            streamerId: this.streamerId,
+                        });
+                    }
+                });
+            } catch (e) {
+                console.error('Error parsing auth cookie:', e);
+            }
         }
     }
 
@@ -152,57 +137,63 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
         }
 
         try {
-            // Step 1: Get challenge and public key from server
+            // 1. Vraag challenge + public key op
             const resp: any = await this.http
-                .get(
-                    `http://localhost:3000/auth/challenge?username=${this.userName}`
-                )
+                .get(`http://localhost:3000/auth/challenge?username=${this.userName}`)
                 .toPromise();
 
             const { challenge, public_key } = resp;
 
-            // Step 2: Sign the challenge using the private key
-            const signature = await this.signChallenge(
-                challenge,
-                this.privateKey
-            );
+            // 2. Onderteken challenge met private key
+            const signature = await this.signChallenge(challenge, this.privateKey);
 
-            // Step 3: Send signature + username + public_key to authenticate endpoint
+            // 3. Stuur authenticatieverzoek
             const payload = {
                 username: this.userName,
                 signature,
                 public_key,
             };
 
-            console.log('Sending authentication payload:', payload);
-
-            interface AuthResponse {
-                authenticated: boolean;
-                username: string;
-            }
-
             const authResp = await this.http
-                .post<AuthResponse>(
+                .post<{ authenticated: boolean; username: string }>(
                     'http://localhost:3000/auth/authenticate',
                     payload
                 )
                 .toPromise();
 
-            console.log('Authentication response:', authResp);
-
             if (authResp && authResp.authenticated) {
+                // ✅ Opslaan en initialiseren
                 this.sessionService.setAuthSession(this.userName, this.privateKey);
                 this.isLoggedIn = true;
-                this.streamerId = this.userName; // Set streamerId to authenticated username
-                this.initWebSocket(); // Initialize WebSocket after login
+                this.streamerId = this.userName;
+
+                this.initWebSocket(); // Start mediasoup streaming socket
+
+                this.chatService.connect(this.streamerId); // ✅ Chat WebSocket
+                this.chatService.messages$.subscribe((msg) => {
+                    this.messages.push(msg);
+                });
+                this.chatService.connectionError$.subscribe((err) => {
+                    this.chatError = err;
+                });
+
+                // optionele follower polling
+                this.followerInterval = interval(60000).subscribe(() => {
+                    if (this.isLoggedIn && this.socket?.readyState === WebSocket.OPEN) {
+                        this.send({
+                            type: 'get-follower-count',
+                            streamerId: this.streamerId,
+                        });
+                    }
+                });
+
                 alert('Authentication successful!');
-                this.userName = '';
                 this.showPopup = false;
             }
         } catch (err) {
             console.error('Error during authentication:', err);
             alert('Authentication failed. See console for details.');
-            this.router.navigate(['/']); // Redirect to home on failure
+            this.router.navigate(['/']);
         }
     }
 
@@ -314,18 +305,18 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
 
     logout(): void {
-        console.log('Logout clicked');
+        console.log('Logout triggered');
         this.sessionService.clearAuthSession();
+        this.keyService.setKey(null); // 🔐 extra beveiliging
         this.isLoggedIn = false;
         this.streamerId = '';
         this.dropdownOpen = false;
-        this.showPopup = true; // Show login popup after logout
+        this.showPopup = true;
         if (this.socket) {
             this.socket.close();
         }
         this.router.navigate(['/']);
     }
-
     private initWebSocket(): void {
         // Establish a WebSocket connection
         console.log('Connecting WebSocket...');
@@ -536,41 +527,59 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
 
     private async createSendTransport(params: any): Promise<void> {
-        let ownHash
-        // Create transport for sending media
         console.log('Creating send transport...');
         this.sendTransport = this.device.createSendTransport(params);
-
-        //Added hash
-        ownHash = await this.createHMAC(this.streamerId, "mySecretKey")
 
         this.sendTransport.on('connect', ({ dtlsParameters }, callback) => {
             console.log('Connecting send transport...');
             this.send({
                 type: 'connect-streamer-transport',
                 dtlsParameters,
-                streamerId: this.streamerId,
-                //Added hash
-                hash: ownHash
+                streamerId: this.streamerId
             });
             callback();
         });
 
-        this.sendTransport.on(
-            'produce',
-            ({ kind, rtpParameters }, callback) => {
-                console.log(`Producing track: ${kind}`);
+        this.sendTransport.on('produce', async ({ kind, rtpParameters }, callback) => {
+            console.log(`Producing track: ${kind}`);
+
+            const timestamp = new Date().toISOString();
+            const payload = `${this.streamerId}|${kind}|${timestamp}|${JSON.stringify(rtpParameters)}`;
+
+            try {
+                const privateKey = this.keyService.getKey();
+                if (!privateKey) {
+                    console.warn('No private key set for signing!');
+                    return;
+                }
+
+                const encoder = new TextEncoder();
+                const msgBuffer = encoder.encode(payload);
+
+                const signature = await window.crypto.subtle.sign(
+                    'RSASSA-PKCS1-v1_5',
+                    privateKey,
+                    msgBuffer
+                );
+
+                const signatureBase64 = btoa(
+                    String.fromCharCode(...new Uint8Array(signature))
+                );
+
                 this.send({
                     type: 'produce',
                     kind,
                     rtpParameters,
                     streamerId: this.streamerId,
-                    //Added hash
-                    hash: ownHash
+                    timestamp,
+                    signature: signatureBase64
                 });
+
                 callback({ id: 'placeholder-producer-id' });
+            } catch (err) {
+                console.error('Error signing produce message:', err);
             }
-        );
+        });
 
         console.log('Send transport ready. Awaiting media.');
     }
@@ -600,8 +609,8 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
     async sendChatMessage(): Promise<void> {
         if (this.newMessage.trim() === '') return;
 
-        const cookie = this.sessionService.getSessionItem('streamer_auth');
-        const userName = cookie ? JSON.parse(cookie).username : 'Anonymous';
+        const session = this.sessionService.getSessionItem('authenticated');
+        const userName = session ? JSON.parse(session).userName : 'Anonymous';
         const authenticated = this.sessionService.checkAuthSession();
 
         const timestamp = new Date().toISOString();
@@ -634,7 +643,7 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
             signature: signatureBase64,
             authenticated: authenticated,
         };
-
+        console.log('🚀 Sending message as:', userName);
         this.chatService.sendMessage(messageJson);
         this.newMessage = '';
     }
@@ -646,23 +655,5 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
         } catch (err) {
             // sometimes view not initialized yet
         }
-    }
-
-    //Make a secret hash
-    async createHMAC(message: string, key: string) {
-        const enc = new TextEncoder();
-
-        // Import the key
-        const cryptoKey = await crypto.subtle.importKey(
-        'raw',
-        enc.encode(key),
-        { name: 'HMAC', hash: 'SHA-256' },
-        false,
-        ['sign']
-        );
-
-        const signature = await crypto.subtle.sign('HMAC', cryptoKey, enc.encode(message));
-        const bytes = new Uint8Array(signature);
-        return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
     }
 }

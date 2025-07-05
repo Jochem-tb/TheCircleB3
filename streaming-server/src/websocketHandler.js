@@ -4,7 +4,7 @@ const mediasoupWorker = require("./mediasoupWorker");
 const { logEvent } = require("./logging/logger");
 const { coinHandlerStart, coinHandlerStop } = require("./helpers");
 const crypto = require('crypto')
-
+const { getUserPublicKey } = require('./auth/publicKeyStore');
 const rooms = new Map();
 module.exports.rooms = rooms;
 
@@ -63,7 +63,6 @@ module.exports.setupWebSocket = (server) => {
 
                     case "create-streamer-transport": {
                         if (!room?.router) return;
-
                         const transport =
                             await room.router.createWebRtcTransport({
                                 listenIps: [
@@ -104,11 +103,6 @@ module.exports.setupWebSocket = (server) => {
                     }
 
                     case "connect-streamer-transport": {
-                        //Added hash
-                        const ownHash = createHMAC(data.streamerId, "mySecretKey");
-
-                        if(ownHash !== data.hash) return;
-
                         if (!room?.streamerTransport) return;
                         await room.streamerTransport.connect({
                             dtlsParameters: data.dtlsParameters,
@@ -125,53 +119,109 @@ module.exports.setupWebSocket = (server) => {
                     }
 
                     case "produce": {
-                        //Added hash
-                        const ownHash = createHMAC(data.streamerId, "mySecretKey");
+                        const { streamerId, kind, timestamp, rtpParameters, signature } = data;
 
-                        if(ownHash !== data.hash) return;
-
-                        if (!room?.streamerTransport) return;
-
-                        const producer = await room.streamerTransport.produce({
-                            kind: data.kind,
-                            rtpParameters: data.rtpParameters,
-                        });
-
-                        room.streamerProducers.set(data.kind, producer);
-                        console.log(
-                            `Streamer ${streamerId} produced: ${data.kind}`
-                        );
-
-                        if (!room.hasLoggedStart) {
-                            await logEvent({
-                                eventType: "stream_start",
-                                userId: streamerId,
-                                sessionId: streamerId,
-                                metadata: {
-                                    kind: data.kind,
-                                    ip: ws._socket?.remoteAddress,
-                                },
-                            });
-                            room.hasLoggedStart = true;
+                        // 1. Valideer aanwezigheid van vereiste velden
+                        if (!streamerId || !kind || !timestamp || !rtpParameters || !signature) {
+                            ws.send(
+                                JSON.stringify({
+                                    type: "error",
+                                    message: "Missing fields in produce message.",
+                                })
+                            );
+                            return;
                         }
 
-                        ws.send(
-                            JSON.stringify({
-                                type: "produced",
-                                id: producer.id,
-                            })
-                        );
+                        // 2. Herstel originele payloadstring
+                        const payload = `${streamerId}|${kind}|${timestamp}|${JSON.stringify(rtpParameters)}`;
 
-                        if (data.kind === "video") {
-                            console.log(
-                                `Starting coin handler for ${streamerId}`
+                        // 3. Haal public key op uit MongoDB
+                        const publicKeyPem = await getUserPublicKey(streamerId);
+                        console.log(`[DEBUG] Public key for ${streamerId}:`, publicKeyPem);
+
+                        if (!publicKeyPem) {
+                            console.warn(`⛔️ No public key found for streamer: ${streamerId}`);
+                            ws.send(
+                                JSON.stringify({
+                                    type: "error",
+                                    message: "No public key found for this streamer.",
+                                })
                             );
-                            await coinHandlerStart(data.streamerId);
+                            return;
+                        }
+
+                        // 4. Verifieer de ondertekening
+                        let isVerified = false;
+                        try {
+                            const publicKey = crypto.createPublicKey({
+                                key: publicKeyPem,
+                                format: "pem",
+                            });
+
+                            isVerified = crypto.verify(
+                                "sha256",
+                                Buffer.from(payload),
+                                publicKey,
+                                Buffer.from(signature, "base64")
+                            );
+                        } catch (err) {
+                            console.error(`❌ Error verifying signature for ${streamerId}:`, err);
+                            ws.send(
+                                JSON.stringify({
+                                    type: "error",
+                                    message: "Error verifying signature.",
+                                })
+                            );
+                            return;
+                        }
+
+                        if (!isVerified) {
+                            console.warn(`🔐 Invalid signature for produce by ${streamerId}`);
+                            ws.send(
+                                JSON.stringify({
+                                    type: "error",
+                                    message: "Invalid signature for produce.",
+                                })
+                            );
+                            return;
+                        }
+
+                        // 5. Produce de track
+
+                        if (!room || !room.streamerTransport) {
+                            ws.send(JSON.stringify({ type: "error", message: "No active stream room or transport." }));
+                            return;
+                        }
+                        
+                        try {
+                            const producer = await room.streamerTransport.produce({
+                                kind,
+                                rtpParameters,
+                            });
+
+                            room.streamerProducers.set(kind, producer);
+
+                            console.log(`✅ Valid producer from ${streamerId}: ${kind}`);
+
+                            ws.send(
+                                JSON.stringify({
+                                    type: "produced",
+                                    id: producer.id,
+                                })
+                            );
+                        } catch (err) {
+                            console.error(`❌ Failed to create producer for ${streamerId}:`, err);
+                            ws.send(
+                                JSON.stringify({
+                                    type: "error",
+                                    message: "Failed to create producer.",
+                                })
+                            );
                         }
 
                         break;
                     }
-
+                    
                     case "create-viewer-transport": {
                         role = "viewer";
                         viewerId = data.viewerId;
@@ -202,9 +252,6 @@ module.exports.setupWebSocket = (server) => {
                         ws.viewerId = viewerId;
                         ws.streamerId = streamerId;
 
-                        //Added hash
-                        const ownHash = createHMAC(data.streamerId, "mySecretKey");
-
                         ws.send(
                             JSON.stringify({
                                 type: "viewer-transport-created",
@@ -213,8 +260,6 @@ module.exports.setupWebSocket = (server) => {
                                     iceParameters: transport.iceParameters,
                                     iceCandidates: transport.iceCandidates,
                                     dtlsParameters: transport.dtlsParameters,
-                                    //Added hash
-                                    hash: ownHash
                                 },
                             })
                         );
@@ -282,9 +327,6 @@ module.exports.setupWebSocket = (server) => {
                             );
                         });
 
-                        //Added hash
-                        const ownHash = createHMAC(data.streamerId, "mySecretKey");
-
                         ws.send(
                             JSON.stringify({
                                 type: "consumed",
@@ -293,8 +335,6 @@ module.exports.setupWebSocket = (server) => {
                                     producerId: producer.id,
                                     kind: consumer.kind,
                                     rtpParameters: consumer.rtpParameters,
-                                    //Added hash
-                                    hash: ownHash 
                                 },
                             })
                         );
@@ -380,8 +420,4 @@ module.exports.setupWebSocket = (server) => {
             }
         });
     });
-
-    function createHMAC(message, key) {
-        return crypto.createHmac("sha256", key).update(message).digest("hex");
-    }
 };
