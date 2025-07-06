@@ -192,7 +192,7 @@ module.exports.setupWebSocket = (server) => {
                             ws.send(JSON.stringify({ type: "error", message: "No active stream room or transport." }));
                             return;
                         }
-                        
+
                         try {
                             const producer = await room.streamerTransport.produce({
                                 kind,
@@ -207,6 +207,8 @@ module.exports.setupWebSocket = (server) => {
                                 JSON.stringify({
                                     type: "produced",
                                     id: producer.id,
+                                    kind,
+                                    callbackId: data.callbackId,
                                 })
                             );
                         } catch (err) {

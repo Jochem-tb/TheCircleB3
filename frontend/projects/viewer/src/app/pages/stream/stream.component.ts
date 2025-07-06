@@ -78,27 +78,11 @@ export class StreamComponent implements OnInit, OnDestroy, AfterViewInit {
                     break;
 
                 case 'viewer-transport-created':
-                    //Added hash
-                    console.log('Reached transport created')
-                    console.log(message)
-                    ownHash = await this.createHMAC(this.streamerId, "mySecretKey")
-                    if(ownHash !== message.params.hash){
-                        console.log('Message altered')
-                    }else{
-                        await this.createRecvTransport(message.params);
-                    }
+                    await this.createRecvTransport(message.params);
                     break;
 
                 case 'consumed':
-                    //Added hash
-                    console.log('Reached consumed')
-                    console.log(message)
-                    ownHash = await this.createHMAC(this.streamerId, "mySecretKey")
-                    if(ownHash !== message.params.hash){
-                        console.log('Message altered')
-                    }else{
-                        await this.consume(message.params);   
-                    }           
+                    await this.consume(message.params);
                     break;
 
                 default:
@@ -214,23 +198,5 @@ export class StreamComponent implements OnInit, OnDestroy, AfterViewInit {
         } else {
             console.warn('Tried to send but WebSocket not open:', data);
         }
-    }
-
-    //Make a secret hash
-    async createHMAC(message: string, key: string) {
-        const enc = new TextEncoder();
-
-        // Import the key
-        const cryptoKey = await crypto.subtle.importKey(
-        'raw',
-        enc.encode(key),
-        { name: 'HMAC', hash: 'SHA-256' },
-        false,
-        ['sign']
-        );
-
-        const signature = await crypto.subtle.sign('HMAC', cryptoKey, enc.encode(message));
-        const bytes = new Uint8Array(signature);
-        return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
     }
 }

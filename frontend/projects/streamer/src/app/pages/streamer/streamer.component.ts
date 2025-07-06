@@ -535,12 +535,12 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
             this.send({
                 type: 'connect-streamer-transport',
                 dtlsParameters,
-                streamerId: this.streamerId
+                streamerId: this.streamerId,
             });
             callback();
         });
 
-        this.sendTransport.on('produce', async ({ kind, rtpParameters }, callback) => {
+        this.sendTransport.on('produce', async ({ kind, rtpParameters }, callback, errback) => {
             console.log(`Producing track: ${kind}`);
 
             const timestamp = new Date().toISOString();
@@ -550,6 +550,7 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
                 const privateKey = this.keyService.getKey();
                 if (!privateKey) {
                     console.warn('No private key set for signing!');
+                    errback?.(new Error('Missing private key'));
                     return;
                 }
 
@@ -566,22 +567,54 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
                     String.fromCharCode(...new Uint8Array(signature))
                 );
 
+                // Genereer unieke correlatie-id
+                const callbackId = crypto.randomUUID();
+
+                // Stuur produce-verzoek
                 this.send({
                     type: 'produce',
                     kind,
                     rtpParameters,
                     streamerId: this.streamerId,
                     timestamp,
-                    signature: signatureBase64
+                    signature: signatureBase64,
+                    callbackId, // belangrijk!
                 });
 
-                callback({ id: 'placeholder-producer-id' });
+                // Wacht op response
+                const response = await this.waitForMessageOnce('produced', callbackId);
+
+                if (response?.id) {
+                    console.log(`✅ Received producer ID for ${kind}: ${response.id}`);
+                    callback({ id: response.id });
+                } else {
+                    console.warn('❌ Failed to receive valid producer ID');
+                    errback?.(new Error('Missing producer ID'));
+                }
             } catch (err) {
-                console.error('Error signing produce message:', err);
+                console.error('Error while signing/producing:', err);
+                if (err instanceof Error) {
+                    errback?.(err);
+                } else {
+                    errback?.(new Error('Unknown error during produce'));
+                }
             }
         });
 
         console.log('Send transport ready. Awaiting media.');
+    }
+
+    private waitForMessageOnce(type: string, callbackId: string): Promise<any> {
+        return new Promise((resolve) => {
+            const handler = (event: MessageEvent) => {
+                const message = JSON.parse(event.data);
+                if (message.type === type && message.callbackId === callbackId) {
+                    this.socket.removeEventListener('message', handler);
+                    resolve(message);
+                }
+            };
+            this.socket.addEventListener('message', handler);
+        });
     }
 
     // Toggle video visibility (by enabling/disabling the video track)
