@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Subject } from 'rxjs';
+import { CryptoKeyService } from './crypto-key.service';
 
 export type ChatMessage = {
   userName: string;
@@ -11,7 +12,6 @@ export type ChatMessage = {
   providedIn: 'root',
 })
 export class ChatService {
-
   private ws: WebSocket | null = null;
   private messageSubject = new Subject<ChatMessage>();
   public messages$ = this.messageSubject.asObservable();
@@ -19,6 +19,8 @@ export class ChatService {
   public connectionError$ = this.connectionErrorSubject.asObservable();
 
   private authenticated = false;
+
+  constructor(private keyService: CryptoKeyService) {}
 
   connect(streamerId: string) {
     const url = `ws://localhost:8081/?userId=${streamerId}`;
@@ -32,15 +34,11 @@ export class ChatService {
     this.ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        console.log('📬 Message received:', data);
 
         if (data.error) {
-          console.error('❌ Error from server:', data.error);
-          this.connectionErrorSubject.next('Server error: ' + data.error)
+          this.connectionErrorSubject.next('Server error: ' + data.error);
           return;
         }
-
-        console.log('📬 Message received chatservice:', data);
 
         this.messageSubject.next({
           userName: data.userName,
@@ -64,21 +62,42 @@ export class ChatService {
     };
   }
 
-  sendMessage(messageJson: any) {
-  if (!messageJson.authenticated) {
-    console.warn("🚫 User is not authenticated. Message not sent.");
-    return;
+  async sendMessage(messageJson: any) {
+    if (!messageJson.authenticated) {
+      console.warn('🚫 User is not authenticated. Message not sent.');
+      return;
+    }
+
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      // ↓ HMAC weg, we doen alleen nog de RSA-signature ↓
+      const privateKey = this.keyService.getKey();
+      if (!privateKey) {
+        console.warn('🚫 No private key available. Message not sent.');
+        return;
+      }
+
+      const payload = `${messageJson.userName}|${messageJson.messageText}|${messageJson.timestamp}`;
+      const encoder = new TextEncoder();
+      const msgBuffer = encoder.encode(payload);
+
+      const signature = await crypto.subtle.sign(
+        'RSASSA-PKCS1-v1_5',
+        privateKey,
+        msgBuffer
+      );
+
+      const signatureBase64 = btoa(
+        String.fromCharCode(...new Uint8Array(signature))
+      );
+      messageJson.signature = signatureBase64;
+
+      this.ws.send(JSON.stringify(messageJson));
+      console.log('✅ Message sent:', messageJson);
+    } else {
+      console.warn('🚫 WebSocket is not open. Message not sent.');
+    }
   }
   
-  if (this.ws?.readyState === WebSocket.OPEN) {
-    this.ws.send(JSON.stringify(messageJson));
-    console.log("✅ Message sent:", messageJson);
-  } else {
-    console.warn("🚫 WebSocket is not open. Message not sent.");
-  }
-}
-
-
   isAuthenticated(): boolean {
     return this.authenticated;
   }

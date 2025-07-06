@@ -11,10 +11,10 @@ export type ChatMessage = {
   providedIn: 'root',
 })
 export class ChatService {
-
   private ws: WebSocket | null = null;
   private messageSubject = new Subject<ChatMessage>();
   public messages$ = this.messageSubject.asObservable();
+
   private connectionErrorSubject = new BehaviorSubject<string | null>(null);
   public connectionError$ = this.connectionErrorSubject.asObservable();
 
@@ -32,14 +32,15 @@ export class ChatService {
     this.ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        console.log('📬 Message received:', data);
 
+        // Check for error from server
         if (data.error) {
           console.error('❌ Error from server:', data.error);
-          this.connectionErrorSubject.next('Server error: ' + data.error)
+          this.connectionErrorSubject.next('Server error: ' + data.error);
           return;
         }
 
+        // Message is valid → push to chat log
         console.log('📬 Message received chatservice:', data);
 
         this.messageSubject.next({
@@ -59,25 +60,24 @@ export class ChatService {
     };
 
     this.ws.onerror = (err) => {
-      console.error('💥 WebSocket error:', err);
+      console.error('WebSocket error:', err);
       this.connectionErrorSubject.next('WebSocket error occurred');
     };
   }
 
-  sendMessage(messageJson: any) {
-  if (!messageJson.authenticated) {
-    console.warn("🚫 User is not authenticated. Message not sent.");
-    return;
-  }
-  
-  if (this.ws?.readyState === WebSocket.OPEN) {
-    this.ws.send(JSON.stringify(messageJson));
-    console.log("✅ Message sent:", messageJson);
-  } else {
-    console.warn("🚫 WebSocket is not open. Message not sent.");
-  }
-}
+  async sendMessage(messageJson: any) {
+    if (!messageJson.authenticated) {
+      console.warn('User is not authenticated. Message not sent.');
+      return;
+    }
 
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(messageJson));
+      console.log('Message sent:', messageJson);
+    } else {
+      console.warn('WebSocket is not open. Message not sent.');
+    }
+  }
 
   isAuthenticated(): boolean {
     return this.authenticated;

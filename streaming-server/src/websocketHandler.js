@@ -3,7 +3,8 @@ const { Room } = require("./room");
 const mediasoupWorker = require("./mediasoupWorker");
 const { logEvent } = require("./logging/logger");
 const { coinHandlerStart, coinHandlerStop } = require("./helpers");
-
+const crypto = require('crypto')
+const { getUserPublicKey } = require('./auth/publicKeyStore');
 const rooms = new Map();
 module.exports.rooms = rooms;
 
@@ -118,48 +119,105 @@ module.exports.setupWebSocket = (server) => {
                     }
 
                     case "produce": {
-                        if (!room?.streamerTransport) return;
+                        const { streamerId, kind, timestamp, rtpParameters, signature } = data;
 
-                        const producer = await room.streamerTransport.produce({
-                            kind: data.kind,
-                            rtpParameters: data.rtpParameters,
-                        });
-
-                        room.streamerProducers.set(data.kind, producer);
-                        console.log(
-                            `Streamer ${streamerId} produced: ${data.kind}`
-                        );
-
-                        if (!room.hasLoggedStart) {
-                            await logEvent({
-                                eventType: "stream_start",
-                                userId: streamerId,
-                                sessionId: streamerId,
-                                metadata: {
-                                    kind: data.kind,
-                                    ip: ws._socket?.remoteAddress,
-                                },
-                            });
-                            room.hasLoggedStart = true;
+                        // 1. Valideer aanwezigheid van vereiste velden
+                        if (!streamerId || !kind || !timestamp || !rtpParameters || !signature) {
+                            ws.send(
+                                JSON.stringify({
+                                    type: "error",
+                                    message: "Missing fields in produce message.",
+                                })
+                            );
+                            return;
                         }
 
-                        ws.send(
-                            JSON.stringify({
-                                type: "produced",
-                                id: producer.id,
-                            })
-                        );
+                        const payload = `${streamerId}|${kind}|${timestamp}|${JSON.stringify(rtpParameters)}`;
+                        const publicKeyPem = await getUserPublicKey(streamerId);
+                        console.log(`[DEBUG] Public key for ${streamerId}:`, publicKeyPem);
 
-                        if (data.kind === "video") {
-                            console.log(
-                                `Starting coin handler for ${streamerId}`
+                        if (!publicKeyPem) {
+                            console.warn(`⛔️ No public key found for streamer: ${streamerId}`);
+                            ws.send(
+                                JSON.stringify({
+                                    type: "error",
+                                    message: "No public key found for this streamer.",
+                                })
                             );
-                            await coinHandlerStart(data.streamerId);
+                            return;
+                        }
+
+                        let isVerified = false;
+                        try {
+                            const publicKey = crypto.createPublicKey({
+                                key: publicKeyPem,
+                                format: "pem",
+                            });
+
+                            isVerified = crypto.verify(
+                                "sha256",
+                                Buffer.from(payload),
+                                publicKey,
+                                Buffer.from(signature, "base64")
+                            );
+                        } catch (err) {
+                            console.error(`❌ Error verifying signature for ${streamerId}:`, err);
+                            ws.send(
+                                JSON.stringify({
+                                    type: "error",
+                                    message: "Error verifying signature.",
+                                })
+                            );
+                            return;
+                        }
+
+                        if (!isVerified) {
+                            console.warn(`🔐 Invalid signature for produce by ${streamerId}`);
+                            ws.send(
+                                JSON.stringify({
+                                    type: "error",
+                                    message: "Invalid signature for produce.",
+                                })
+                            );
+                            return;
+                        }
+
+                        if (!room || !room.streamerTransport) {
+                            ws.send(JSON.stringify({ type: "error", message: "No active stream room or transport." }));
+                            return;
+                        }
+
+                        try {
+                            const producer = await room.streamerTransport.produce({
+                                kind,
+                                rtpParameters,
+                            });
+
+                            room.streamerProducers.set(kind, producer);
+
+                            console.log(`✅ Valid producer from ${streamerId}: ${kind}`);
+
+                            ws.send(
+                                JSON.stringify({
+                                    type: "produced",
+                                    id: producer.id,
+                                    kind,
+                                    callbackId: data.callbackId,
+                                })
+                            );
+                        } catch (err) {
+                            console.error(`❌ Failed to create producer for ${streamerId}:`, err);
+                            ws.send(
+                                JSON.stringify({
+                                    type: "error",
+                                    message: "Failed to create producer.",
+                                })
+                            );
                         }
 
                         break;
                     }
-
+                    
                     case "create-viewer-transport": {
                         role = "viewer";
                         viewerId = data.viewerId;

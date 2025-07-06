@@ -70,6 +70,7 @@ export class StreamComponent implements OnInit, OnDestroy, AfterViewInit {
         this.socket.onmessage = async (event) => {
             const message = JSON.parse(event.data);
             console.log('Message received:', message);
+            let ownHash
 
             switch (message.type) {
                 case 'router-rtp-capabilities':
@@ -106,7 +107,7 @@ export class StreamComponent implements OnInit, OnDestroy, AfterViewInit {
         console.log('Creating recv transport...');
         this.recvTransport = this.device.createRecvTransport(params);
 
-        this.recvTransport.on('connect', ({ dtlsParameters }, callback) => {
+        this.recvTransport.on('connect', ({ dtlsParameters }: any, callback) => {
             this.send({
                 type: 'connect-viewer-transport',
                 streamerId: this.streamerId,
@@ -116,7 +117,7 @@ export class StreamComponent implements OnInit, OnDestroy, AfterViewInit {
             callback();
         });
 
-        this.recvTransport.on('connectionstatechange', (state) => {
+        this.recvTransport.on('connectionstatechange', (state: any) => {
             console.log('Viewer transport state:', state);
         });
 

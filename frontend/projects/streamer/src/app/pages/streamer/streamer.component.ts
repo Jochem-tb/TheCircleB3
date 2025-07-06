@@ -11,9 +11,11 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { CookieService } from '../../services/cookie.service';
+import { SessionService } from '../../services/Session.service';
 import { Subscription, interval } from 'rxjs';
 import * as mediasoupClient from 'mediasoup-client';
 import { ChatService, ChatMessage } from '../../services/chat.service';
+import { CryptoKeyService } from '../../services/crypto-key.service';
 
 @Component({
     selector: 'app-streamer',
@@ -58,7 +60,9 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
         private router: Router,
         private http: HttpClient,
         private cookieService: CookieService,
-        private chatService: ChatService
+        private sessionService: SessionService,
+        private chatService: ChatService,
+        private keyService: CryptoKeyService // Toegevoegd
     ) {}
 
     ngAfterViewChecked() {
@@ -66,61 +70,46 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
 
     ngOnInit(): void {
-        // Subscribe to authentication status
-        this.authSubscription = this.cookieService.authenticated$.subscribe(
+        this.isLoggedIn = this.sessionService.checkAuthSession();
+        const hasKey = this.keyService.getKey() !== null;
+
+        // 🔐 Verplicht opnieuw inloggen bij refresh
+        if (!this.isLoggedIn || !hasKey) {
+            this.logout(); // forceert showPopup
+            return;
+        }
+
+        // Ingelogd? Init socket & chat
+        this.authSubscription = this.sessionService.authenticated$.subscribe(
             (isAuth) => {
                 this.isLoggedIn = isAuth;
-                if (isAuth) {
-                    // Retrieve username from cookie or server if needed
-                    const cookie =
-                        this.cookieService.getCookie('streamer_auth');
-                    if (cookie) {
-                        try {
-                            const data = JSON.parse(cookie);
-                            this.streamerId = data.username || this.userName; // Set streamerId to username
-                            this.initWebSocket();
-                            this.chatService.connect(this.streamerId);
-                            this.chatService.messages$.subscribe((msg) => {
-                                this.messages.push(msg);
-                                // Optional: auto scroll chat div (you can implement later)
-                            });
-
-                            // Subscribe to chat errors
-                            this.chatService.connectionError$.subscribe(
-                                (err) => {
-                                    this.chatError = err;
-                                }
-                            );
-
-                            this.followerInterval = interval(60000).subscribe(
-                                () => {
-                                    if (
-                                        this.isLoggedIn &&
-                                        this.socket?.readyState ===
-                                            WebSocket.OPEN
-                                    ) {
-                                        this.send({
-                                            type: 'get-follower-count',
-                                            streamerId: this.streamerId,
-                                        });
-                                    }
-                                }
-                            );
-                        } catch (e) {
-                            console.error('Error parsing auth cookie:', e);
-                        }
-                    }
-                } else {
-                    this.messages = [];
-                    this.chatService.disconnect();
-                }
             }
         );
 
-        // Check initial auth status
-        this.isLoggedIn = this.cookieService.checkAuthCookie();
-        if (!this.isLoggedIn) {
-            this.showPopup = true; // Show login popup if not authenticated
+        const cookie = this.sessionService.getSessionItem('streamer_auth');
+        if (cookie) {
+            try {
+                const data = JSON.parse(cookie);
+                this.streamerId = data.username;
+                this.initWebSocket();
+                this.chatService.connect(this.streamerId);
+                this.chatService.messages$.subscribe((msg) => {
+                    this.messages.push(msg);
+                });
+                this.chatService.connectionError$.subscribe((err) => {
+                    this.chatError = err;
+                });
+                this.followerInterval = interval(60000).subscribe(() => {
+                    if (this.socket?.readyState === WebSocket.OPEN) {
+                        this.send({
+                            type: 'get-follower-count',
+                            streamerId: this.streamerId,
+                        });
+                    }
+                });
+            } catch (e) {
+                console.error('Error parsing auth cookie:', e);
+            }
         }
     }
 
@@ -148,58 +137,63 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
         }
 
         try {
-            // Step 1: Get challenge and public key from server
+            // 1. Vraag challenge + public key op
             const resp: any = await this.http
-                .get(
-                    `http://localhost:3000/auth/challenge?username=${this.userName}`
-                )
+                .get(`http://localhost:3000/auth/challenge?username=${this.userName}`)
                 .toPromise();
 
             const { challenge, public_key } = resp;
 
-            // Step 2: Sign the challenge using the private key
-            const signature = await this.signChallenge(
-                challenge,
-                this.privateKey
-            );
+            // 2. Onderteken challenge met private key
+            const signature = await this.signChallenge(challenge, this.privateKey);
 
-            // Step 3: Send signature + username + public_key to authenticate endpoint
+            // 3. Stuur authenticatieverzoek
             const payload = {
                 username: this.userName,
                 signature,
                 public_key,
             };
 
-            console.log('Sending authentication payload:', payload);
-
-            interface AuthResponse {
-                authenticated: boolean;
-                username: string;
-            }
-
             const authResp = await this.http
-                .post<AuthResponse>(
+                .post<{ authenticated: boolean; username: string }>(
                     'http://localhost:3000/auth/authenticate',
                     payload
                 )
                 .toPromise();
 
-            console.log('Authentication response:', authResp);
-
             if (authResp && authResp.authenticated) {
-                this.cookieService.setAuthCookie(this.userName);
+                // ✅ Opslaan en initialiseren
+                this.sessionService.setAuthSession(this.userName);
                 this.isLoggedIn = true;
-                this.streamerId = this.userName; // Set streamerId to authenticated username
-                this.initWebSocket(); // Initialize WebSocket after login
+                this.streamerId = this.userName;
+
+                this.initWebSocket(); // Start mediasoup streaming socket
+
+                this.chatService.connect(this.streamerId); //Chat WebSocket
+                this.chatService.messages$.subscribe((msg) => {
+                    this.messages.push(msg);
+                });
+                this.chatService.connectionError$.subscribe((err) => {
+                    this.chatError = err;
+                });
+
+                // optionele follower polling
+                this.followerInterval = interval(60000).subscribe(() => {
+                    if (this.isLoggedIn && this.socket?.readyState === WebSocket.OPEN) {
+                        this.send({
+                            type: 'get-follower-count',
+                            streamerId: this.streamerId,
+                        });
+                    }
+                });
+
                 alert('Authentication successful!');
-                this.userName = '';
-                this.privateKey = '';
                 this.showPopup = false;
             }
         } catch (err) {
             console.error('Error during authentication:', err);
             alert('Authentication failed. See console for details.');
-            this.router.navigate(['/']); // Redirect to home on failure
+            this.router.navigate(['/']);
         }
     }
 
@@ -214,9 +208,29 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
         const file = input.files[0];
         const reader = new FileReader();
 
-        reader.onload = () => {
+        reader.onload = async () => {
             this.privateKey = (reader.result as string).trim();
-            console.log('Private key loaded:', this.privateKey);
+            console.log('Private key loaded');
+
+            const pem = this.privateKey
+                .replace(/-----BEGIN PRIVATE KEY-----/, '')
+                .replace(/-----END PRIVATE KEY-----/, '')
+                .replace(/\r?\n|\r/g, '');
+
+            const binaryDer = Uint8Array.from(atob(pem), c => c.charCodeAt(0));
+
+            const key = await crypto.subtle.importKey(
+                'pkcs8',
+                binaryDer.buffer,
+                {
+                    name: 'RSASSA-PKCS1-v1_5',
+                    hash: { name: 'SHA-256' },
+                },
+                false,
+                ['sign']
+            );
+
+            this.keyService.setKey(key); // ⬅️ Hier sla je het op
         };
 
         reader.onerror = () => {
@@ -226,10 +240,7 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
         reader.readAsText(file);
     }
 
-    async signChallenge(
-        challenge: string,
-        privateKeyPem: string
-    ): Promise<string> {
+    async signChallenge(challenge: string,privateKeyPem: string): Promise<string> {
         const pemContents = privateKeyPem
             .replace(/-----BEGIN PRIVATE KEY-----/, '')
             .replace(/-----END PRIVATE KEY-----/, '')
@@ -291,18 +302,18 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
 
     logout(): void {
-        console.log('Logout clicked');
-        this.cookieService.clearAuthCookie();
+        console.log('Logout triggered');
+        this.sessionService.clearAuthSession();
+        this.keyService.setKey(null); //extra beveiliging
         this.isLoggedIn = false;
         this.streamerId = '';
         this.dropdownOpen = false;
-        this.showPopup = true; // Show login popup after logout
+        this.showPopup = true;
         if (this.socket) {
             this.socket.close();
         }
         this.router.navigate(['/']);
     }
-
     private initWebSocket(): void {
         // Establish a WebSocket connection
         console.log('Connecting WebSocket...');
@@ -513,7 +524,6 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
 
     private async createSendTransport(params: any): Promise<void> {
-        // Create transport for sending media
         console.log('Creating send transport...');
         this.sendTransport = this.device.createSendTransport(params);
 
@@ -527,21 +537,81 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
             callback();
         });
 
-        this.sendTransport.on(
-            'produce',
-            ({ kind, rtpParameters }, callback) => {
-                console.log(`Producing track: ${kind}`);
+        this.sendTransport.on('produce', async ({ kind, rtpParameters }, callback, errback) => {
+            console.log(`Producing track: ${kind}`);
+
+            const timestamp = new Date().toISOString();
+            const payload = `${this.streamerId}|${kind}|${timestamp}|${JSON.stringify(rtpParameters)}`;
+
+            try {
+                const privateKey = this.keyService.getKey();
+                if (!privateKey) {
+                    console.warn('No private key set for signing!');
+                    errback?.(new Error('Missing private key'));
+                    return;
+                }
+
+                const encoder = new TextEncoder();
+                const msgBuffer = encoder.encode(payload);
+
+                const signature = await window.crypto.subtle.sign(
+                    'RSASSA-PKCS1-v1_5',
+                    privateKey,
+                    msgBuffer
+                );
+
+                const signatureBase64 = btoa(
+                    String.fromCharCode(...new Uint8Array(signature))
+                );
+
+                // Genereer unieke correlatie-id
+                const callbackId = crypto.randomUUID();
+
+                // Stuur produce-verzoek
                 this.send({
                     type: 'produce',
                     kind,
                     rtpParameters,
                     streamerId: this.streamerId,
+                    timestamp,
+                    signature: signatureBase64,
+                    callbackId, // belangrijk!
                 });
-                callback({ id: 'placeholder-producer-id' });
+
+                // Wacht op response
+                const response = await this.waitForMessageOnce('produced', callbackId);
+
+                if (response?.id) {
+                    console.log(`Received producer ID for ${kind}: ${response.id}`);
+                    callback({ id: response.id });
+                } else {
+                    console.warn('Failed to receive valid producer ID');
+                    errback?.(new Error('Missing producer ID'));
+                }
+            } catch (err) {
+                console.error('Error while signing/producing:', err);
+                if (err instanceof Error) {
+                    errback?.(err);
+                } else {
+                    errback?.(new Error('Unknown error during produce'));
+                }
             }
-        );
+        });
 
         console.log('Send transport ready. Awaiting media.');
+    }
+
+    private waitForMessageOnce(type: string, callbackId: string): Promise<any> {
+        return new Promise((resolve) => {
+            const handler = (event: MessageEvent) => {
+                const message = JSON.parse(event.data);
+                if (message.type === type && message.callbackId === callbackId) {
+                    this.socket.removeEventListener('message', handler);
+                    resolve(message);
+                }
+            };
+            this.socket.addEventListener('message', handler);
+        });
     }
 
     // Toggle video visibility (by enabling/disabling the video track)
@@ -566,22 +636,44 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
         }
     }
 
-    sendChatMessage(): void {
+    async sendChatMessage(): Promise<void> {
         if (this.newMessage.trim() === '') return;
 
-        const cookie = this.cookieService.getCookie('streamer_auth');
-        const userName = cookie ? JSON.parse(cookie).username : 'Anonymous';
-        const authenticated = this.cookieService.checkAuthCookie();
+        const session = this.sessionService.getSessionItem('authenticated');
+        const userName = session ? JSON.parse(session).userName : 'Anonymous';
+        const authenticated = this.sessionService.checkAuthSession();
+
+        const timestamp = new Date().toISOString();
+        const payload = `${userName}|${this.newMessage}|${timestamp}`;
+
+        const privateKey = this.keyService.getKey();
+        if (!privateKey) {
+            console.warn('No private key set');
+            return;
+        }
+
+        const encoder = new TextEncoder();
+        const msgBuffer = encoder.encode(payload);
+
+        const signature = await crypto.subtle.sign(
+            'RSASSA-PKCS1-v1_5',
+            privateKey,
+            msgBuffer
+        );
+
+        const signatureBase64 = btoa(
+            String.fromCharCode(...new Uint8Array(signature))
+        );
 
         const messageJson = {
             type: 'auth',
             userName: userName,
             messageText: this.newMessage,
-            publicKey: '',
-            signature: '',
+            timestamp: timestamp,
+            signature: signatureBase64,
             authenticated: authenticated,
         };
-
+        console.log('🚀 Sending message as:', userName);
         this.chatService.sendMessage(messageJson);
         this.newMessage = '';
     }
