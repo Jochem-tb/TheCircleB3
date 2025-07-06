@@ -132,10 +132,7 @@ module.exports.setupWebSocket = (server) => {
                             return;
                         }
 
-                        // 2. Herstel originele payloadstring
                         const payload = `${streamerId}|${kind}|${timestamp}|${JSON.stringify(rtpParameters)}`;
-
-                        // 3. Haal public key op uit MongoDB
                         const publicKeyPem = await getUserPublicKey(streamerId);
                         console.log(`[DEBUG] Public key for ${streamerId}:`, publicKeyPem);
 
@@ -150,7 +147,6 @@ module.exports.setupWebSocket = (server) => {
                             return;
                         }
 
-                        // 4. Verifieer de ondertekening
                         let isVerified = false;
                         try {
                             const publicKey = crypto.createPublicKey({
@@ -185,8 +181,6 @@ module.exports.setupWebSocket = (server) => {
                             );
                             return;
                         }
-
-                        // 5. Produce de track
 
                         if (!room || !room.streamerTransport) {
                             ws.send(JSON.stringify({ type: "error", message: "No active stream room or transport." }));

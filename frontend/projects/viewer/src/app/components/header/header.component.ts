@@ -221,7 +221,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
   logout(): void {
       console.log('Viewer logout');
       this.sessionService.clearAuthSession();
-      this.keyService.setKey(null); // 🔐 sleutel verwijderen
+      this.keyService.setKey(null); // sleutel verwijderen
       this.isLoggedIn = false;
       this.dropdownOpen = false;
       this.showPopup = true;

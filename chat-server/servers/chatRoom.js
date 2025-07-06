@@ -42,7 +42,7 @@ class ChatRoom {
       return ws.send(JSON.stringify({ error: "Missing fields in message" }));
     }
 
-    // 🔐 Prepare the signed string
+    // Prepare the signed string
     const signedPayload = `${userName}|${messageText}|${timestamp}`;
 
     try {
@@ -54,7 +54,7 @@ class ChatRoom {
         return ws.send(JSON.stringify({ error: "User or publicKey not found" }));
       }
 
-      // ✅ Verify the digital signature
+      // Verify the digital signature
       const isVerified = crypto.verify(
         "sha256",
         Buffer.from(signedPayload),
@@ -82,14 +82,14 @@ class ChatRoom {
         }
       );
 
-      // 📢 Broadcast to all clients
+      // Broadcast to all clients
       const message = {
         userName,
         messageText,
         timestamp,
       };
 
-      // ✅ Log naar logging-service
+      // Log naar logging-service
     //   this.logChatEvent({
     //     userName: msg.userName,
     //     messageText: msg.messageText,
@@ -101,7 +101,7 @@ class ChatRoom {
 
       this.broadcast(JSON.stringify(message));
     } catch (err) {
-      console.error("❌ Internal error in handleMessage:", err);
+      console.error("Internal error in handleMessage:", err);
       return ws.send(JSON.stringify({ error: "Internal server error" }));
     }
   }
@@ -117,7 +117,7 @@ class ChatRoom {
 
 //   async logChatEvent({ userName, messageText, timestamp }) {
 //     if (!userName || !messageText) {
-//       console.warn("⚠️ logChatEvent: Missing userName or messageText");
+//       console.warn("logChatEvent: Missing userName or messageText");
 //       return;
 //     }
 
@@ -147,22 +147,6 @@ class ChatRoom {
 //       timeout: 2000,
 //     });
 //   }
-
-  async verifyWithAuthServer(name, publicKey, signature) {
-    try {
-      const res = await fetch(`${AUTH_SERVER_URL}/verify`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, publicKey, signature }),
-      });
-
-      const result = await res.json();
-      return result.validVerification === true;
-    } catch (err) {
-      console.error("Auth server error:", err);
-      return false;
-    }
-  }
 }
 
 export default ChatRoom;

@@ -62,7 +62,7 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
         private cookieService: CookieService,
         private sessionService: SessionService,
         private chatService: ChatService,
-        private keyService: CryptoKeyService // ⬅️ Toegevoegd
+        private keyService: CryptoKeyService // Toegevoegd
     ) {}
 
     ngAfterViewChecked() {
@@ -169,7 +169,7 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
                 this.initWebSocket(); // Start mediasoup streaming socket
 
-                this.chatService.connect(this.streamerId); // ✅ Chat WebSocket
+                this.chatService.connect(this.streamerId); //Chat WebSocket
                 this.chatService.messages$.subscribe((msg) => {
                     this.messages.push(msg);
                 });
@@ -240,10 +240,7 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
         reader.readAsText(file);
     }
 
-    async signChallenge(
-        challenge: string,
-        privateKeyPem: string
-    ): Promise<string> {
+    async signChallenge(challenge: string,privateKeyPem: string): Promise<string> {
         const pemContents = privateKeyPem
             .replace(/-----BEGIN PRIVATE KEY-----/, '')
             .replace(/-----END PRIVATE KEY-----/, '')
@@ -307,7 +304,7 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
     logout(): void {
         console.log('Logout triggered');
         this.sessionService.clearAuthSession();
-        this.keyService.setKey(null); // 🔐 extra beveiliging
+        this.keyService.setKey(null); //extra beveiliging
         this.isLoggedIn = false;
         this.streamerId = '';
         this.dropdownOpen = false;
@@ -585,10 +582,10 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
                 const response = await this.waitForMessageOnce('produced', callbackId);
 
                 if (response?.id) {
-                    console.log(`✅ Received producer ID for ${kind}: ${response.id}`);
+                    console.log(`Received producer ID for ${kind}: ${response.id}`);
                     callback({ id: response.id });
                 } else {
-                    console.warn('❌ Failed to receive valid producer ID');
+                    console.warn('Failed to receive valid producer ID');
                     errback?.(new Error('Missing producer ID'));
                 }
             } catch (err) {
@@ -651,7 +648,7 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
         const privateKey = this.keyService.getKey();
         if (!privateKey) {
-            console.warn('🚫 No private key set');
+            console.warn('No private key set');
             return;
         }
 

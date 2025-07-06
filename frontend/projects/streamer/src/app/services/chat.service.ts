@@ -60,22 +60,22 @@ export class ChatService {
     };
 
     this.ws.onerror = (err) => {
-      console.error('💥 WebSocket error:', err);
+      console.error('WebSocket error:', err);
       this.connectionErrorSubject.next('WebSocket error occurred');
     };
   }
 
   async sendMessage(messageJson: any) {
     if (!messageJson.authenticated) {
-      console.warn('🚫 User is not authenticated. Message not sent.');
+      console.warn('User is not authenticated. Message not sent.');
       return;
     }
 
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(messageJson));
-      console.log('✅ Message sent:', messageJson);
+      console.log('Message sent:', messageJson);
     } else {
-      console.warn('🚫 WebSocket is not open. Message not sent.');
+      console.warn('WebSocket is not open. Message not sent.');
     }
   }
 
