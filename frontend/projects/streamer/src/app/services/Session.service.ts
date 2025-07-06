@@ -9,7 +9,7 @@ export class SessionService {
   public authenticated$ = this.authSubject.asObservable();
 
   constructor() {
-    // Poll every minute to check if session expired
+    // Poll every minuut om sessie te controleren
     interval(60000).subscribe(() => {
       const isAuth = this.internalCheckSession();
       if (isAuth !== this.authSubject.value) {
@@ -18,43 +18,35 @@ export class SessionService {
     });
   }
 
-  // Create session entry
-  setAuthSession(username: string, privateKey: string): void {
-    const exp = new Date().getTime() + 60 * 60 * 1000; // 1 hour
-    const value = JSON.stringify({ userName: username, authenticated: true, exp , privateKey});
+  // Alleen username + exp + authenticated status opslaan
+  setAuthSession(username: string): void {
+    const exp = new Date().getTime() + 60 * 60 * 1000; // 1 uur
+    const value = JSON.stringify({ userName: username, authenticated: true, exp });
     sessionStorage.setItem('authenticated', value);
-
-    // Immediately update observable
     this.authSubject.next(true);
   }
 
-  // Read session entry
   getSessionItem(name: string): string | null {
     return sessionStorage.getItem(name);
   }
 
-  // Remove session entry
   deleteSessionItem(name: string): void {
     sessionStorage.removeItem(name);
-
     if (name === 'authenticated') {
       this.authSubject.next(false);
     }
   }
 
-  // Deletes auth session
   clearAuthSession(): void {
     sessionStorage.removeItem('authenticated');
     this.authSubject.next(false);
     console.log('Cleared authenticated session');
   }
 
-  // Public check
   checkAuthSession(): boolean {
     return this.internalCheckSession();
   }
 
-  // Internal auth check
   private internalCheckSession(): boolean {
     const session = this.getSessionItem('authenticated');
     console.log('Checking session in service:', session);
@@ -63,12 +55,10 @@ export class SessionService {
     try {
       const data = JSON.parse(session);
       const now = new Date().getTime();
-
       if (now > data.exp) {
         this.deleteSessionItem('authenticated');
         return false;
       }
-
       return data.authenticated === true;
     } catch (e) {
       this.deleteSessionItem('authenticated');

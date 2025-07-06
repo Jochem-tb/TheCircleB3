@@ -163,7 +163,7 @@ export class StreamerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
             if (authResp && authResp.authenticated) {
                 // ✅ Opslaan en initialiseren
-                this.sessionService.setAuthSession(this.userName, this.privateKey);
+                this.sessionService.setAuthSession(this.userName);
                 this.isLoggedIn = true;
                 this.streamerId = this.userName;
 
