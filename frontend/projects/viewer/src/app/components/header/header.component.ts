@@ -153,7 +153,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
       .trim();
 
     console.log('signChallenge challenge:', challenge);
-    console.log('signChallenge privateKeyPem:', pemContents);
+    // console.log('signChallenge privateKeyPem:', pemContents);
 
     const binaryDer = Uint8Array.from(window.atob(pemContents), (c) =>
       c.charCodeAt(0)
