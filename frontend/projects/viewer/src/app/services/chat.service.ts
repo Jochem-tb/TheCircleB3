@@ -6,6 +6,7 @@ export type ChatMessage = {
   userName: string;
   messageText: string;
   timestamp: string;
+  signature: string;
 };
 
 @Injectable({
@@ -31,19 +32,41 @@ export class ChatService {
       this.connectionErrorSubject.next(null);
     };
 
-    this.ws.onmessage = (event) => {
+    this.ws.onmessage = async (event) => {
       try {
         const data = JSON.parse(event.data);
+        console.log('Received WebSocket message:', data);
 
         if (data.error) {
           this.connectionErrorSubject.next('Server error: ' + data.error);
           return;
         }
 
+        const { userName, messageText, timestamp, signature } = data;
+
+        if (!userName || !messageText || !timestamp || !signature) {
+          this.connectionErrorSubject.next('Missing fields in message');
+          return;
+        }
+
+        // Verify the signature
+        const isVerified = await this.verifySignature(
+          userName,
+          messageText,
+          timestamp,
+          signature
+        );
+
+        if (!isVerified) {
+          this.connectionErrorSubject.next('Signature verification failed for message from ' + userName);
+          return;
+        }
+
         this.messageSubject.next({
-          userName: data.userName,
-          messageText: data.messageText,
-          timestamp: data.timestamp,
+          userName,
+          messageText,
+          timestamp,
+          signature
         });
       } catch (err) {
         console.error('❗ Invalid message format:', err);
@@ -108,4 +131,67 @@ export class ChatService {
       this.ws = null;
     }
   }
+
+async fetchPublicKey(userName: string): Promise<CryptoKey | null> {
+    try {
+      const response = await fetch(`http://localhost:3000/auth/public-key/${userName}`);
+      if (!response.ok) {
+        console.error(`Failed to fetch public key for ${userName}: ${response.statusText}`);
+        return null;
+      }
+      const { public_key } = await response.json();
+
+      const pemContents = public_key
+        .replace(/-----BEGIN PUBLIC KEY-----/, '')
+        .replace(/-----END PUBLIC KEY-----/, '')
+        .replace(/\r?\n|\r/g, '')
+        .trim();
+
+      const binaryDer = Uint8Array.from(window.atob(pemContents), (c) => c.charCodeAt(0));
+
+      return await window.crypto.subtle.importKey(
+        'spki',
+        binaryDer.buffer,
+        { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+        false,
+        ['verify']
+      );
+    } catch (err) {
+      console.error(`Error fetching public key for ${userName}:`, err);
+      return null;
+    }
+  }
+  
+  async verifySignature(
+    userName: string,
+    messageText: string,
+    timestamp: string,
+    signatureBase64: string
+  ): Promise<boolean> {
+    const publicKey = await this.fetchPublicKey(userName);
+    if (!publicKey) {
+      console.warn(`No public key available for ${userName}`);
+      return false;
+    }
+
+    const payload = `${userName}|${messageText}|${timestamp}`;
+    const encoder = new TextEncoder();
+    const msgBuffer = encoder.encode(payload);
+
+    const signature = Uint8Array.from(atob(signatureBase64), (c) => c.charCodeAt(0));
+
+    try {
+      return await crypto.subtle.verify(
+        'RSASSA-PKCS1-v1_5',
+        publicKey,
+        signature,
+        msgBuffer
+      );
+    } catch (err) {
+      console.error('Signature verification failed:', err);
+      return false;
+    }
+  }
+
+
 }
