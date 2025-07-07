@@ -55,3 +55,21 @@ exports.postAuthenticate = async (req, res, next) => {
     next(err);
   }
 };
+
+exports.getPublicKey = async (req, res, next) => {
+  try {
+    const username = req.params.username;
+    logger.info(`Fetching public key for user: ${username}`);
+
+    if (!username) {
+      logger.error('Username is required');
+      return res.status(400).send('Username is required.');
+    }
+
+    const publicKey = await authServices.getPublicKey(username);
+    res.json({ public_key: publicKey });
+  } catch (err) {
+    logger.error(`Error fetching public key for user: ${username}`, err);
+    res.status(404).send(err.message);
+  }
+};

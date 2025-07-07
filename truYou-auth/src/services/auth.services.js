@@ -37,4 +37,23 @@ exports.verifyUser = (username, signature, public_key) => {
   return verifySignatureChallenge(challenge, public_key, signature);
 };
 
+exports.getPublicKey = async (username) => {
+  const db = await connect();
+  logger.info('Fetching public key for username:', username);
+
+  const user = await db.collection('User').findOne({ userName: username });
+
+  if (!user) {
+    logger.error(`User not found for username: ${username}`);
+    throw new Error('User not found in database');
+  }
+
+  if (!user.publicKey) {
+    logger.error(`Public key not found for username: ${username}`);
+    throw new Error('Public key not found for user');
+  }
+
+  return user.publicKey;
+};
+
 exports._challenges = challenges;

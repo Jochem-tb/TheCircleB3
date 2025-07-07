@@ -4,5 +4,6 @@ const authRoutes = express.Router();
 
 authRoutes.get('/challenge', authController.getChallenge);
 authRoutes.post('/authenticate', authController.postAuthenticate);
+authRoutes.get('/public-key/:username', authController.getPublicKey);
 
 module.exports = authRoutes;
