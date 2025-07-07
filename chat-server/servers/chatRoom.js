@@ -8,6 +8,8 @@ class ChatRoom {
   constructor(userId) {
     this.userId = userId; // Streamer ID
     this.clients = new Set();
+    this.processedMessages = new Set(); // Store hashes of processed messages
+    this.MAX_MESSAGE_AGE_SECONDS = 300; // 5 minutes window size (perhaps te groot)
   }
 
   addClient(ws) {
@@ -35,12 +37,34 @@ class ChatRoom {
       return ws.send(JSON.stringify({ error: "Invalid JSON" }));
     }
 
-    if (!msg.authenticated) return;
+    if (!msg.authenticated) {
+      return ws.send(JSON.stringify({ error: 'User not authenticated' }));
+    }
 
     const { userName, messageText, signature, timestamp } = msg;
     if (!userName || !messageText || !signature || !timestamp) {
       return ws.send(JSON.stringify({ error: "Missing fields in message" }));
     }
+
+    // validate message timestamp against MAX_AGE_SECONDS
+    const messageTime = new Date(timestamp).getTime();
+    const currentTime = Date.now();
+    const timeDiffSeconds = (currentTime - messageTime) / 1000;
+    if (Math.abs(timeDiffSeconds) > this.MAX_MESSAGE_AGE_SECONDS) {
+      return ws.send(
+        JSON.stringify({ error: 'Message timestamp is too old or in the future' })
+      );
+    }
+
+    // Check for identical hashes (using signature as a unique identifier)
+    const messageHash = crypto
+      .createHash('sha256')
+      .update(`${userName}|${messageText}|${timestamp}|${signature}`)
+      .digest('hex');
+    if (this.processedMessages.has(messageHash)) {
+      return ws.send(JSON.stringify({ error: 'Duplicate message detected' }));
+    }
+    this.processedMessages.add(messageHash);
 
     // Prepare the signed string
     const signedPayload = `${userName}|${messageText}|${timestamp}`;
