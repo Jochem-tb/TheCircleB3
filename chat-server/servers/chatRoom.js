@@ -87,6 +87,7 @@ class ChatRoom {
         userName,
         messageText,
         timestamp,
+        signature
       };
 
       // Log naar logging-service
