@@ -34,7 +34,12 @@ exports.verifyUser = (username, signature, public_key) => {
     throw new Error('Challenge not found or expired.');
   }
 
-  return verifySignatureChallenge(challenge, public_key, signature);
+  const isVerified = verifySignatureChallenge(challenge, public_key, signature);
+
+  // Clear challenge immidiately after verification (successful or not) to prevent replay attack
+  delete challenges[username];
+  
+  return isVerified;
 };
 
 exports.getPublicKey = async (username) => {
